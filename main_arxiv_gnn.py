@@ -147,6 +147,7 @@ def main():
 
     evaluator = Evaluator(name='ogbn-arxiv')
 
+    best_val_perf = best_test_perf = float('-inf')
     for run in range(args.runs):
         model.reset_parameters()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -156,12 +157,15 @@ def main():
 
             if epoch % args.log_steps == 0:
                 train_acc, valid_acc, test_acc = result
+                if valid_acc > best_val_perf:
+                    best_val_perf = valid_acc
+                    best_test_perf = test_acc
                 print(f'Run: {run + 1:02d}, '
                       f'Epoch: {epoch:02d}, '
                       f'Loss: {loss:.4f}, '
                       f'Train: {100 * train_acc:.2f}%, '
                       f'Valid: {100 * valid_acc:.2f}% '
-                      f'Test: {100 * test_acc:.2f}%')
+                      f'Test: {100 * best_test_perf:.2f}%')
 
 
 if __name__ == "__main__":

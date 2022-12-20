@@ -71,9 +71,7 @@ def train_lm(lm, loader, features, optimizer, device):
 @torch.no_grad()
 def test(model, data):
     model.eval()
-    criterion = torch.nn.CrossEntropyLoss()
     out = model(data.x, data.edge_index)
-    val_loss = criterion(out[data.val_mask], data.y[data.val_mask])
     pred = out.argmax(dim=-1)
     correct = pred.eq(data.y)
 
@@ -83,7 +81,7 @@ def test(model, data):
     test_acc = correct[data.test_mask].sum().item() / \
         data.test_mask.sum().item()
 
-    return train_acc, val_acc, test_acc, val_loss
+    return train_acc, val_acc, test_acc
 
 
 if __name__ == '__main__':

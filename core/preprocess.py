@@ -8,6 +8,7 @@ from transformers import BertTokenizer
 import torch
 import json
 import pandas as pd
+import torch_geometric.transforms as T
 
 
 def get_raw_text_cora():
@@ -71,8 +72,21 @@ def get_raw_text_citeseer():
 
 
 def get_raw_text_arxiv():
-    data = PygNodePropPredDataset('ogbn-arxiv')
-    data = data[0]
+    dataset = PygNodePropPredDataset(
+        'ogbn-arxiv', transform=T.ToSparseTensor())
+    data = dataset[0]
+    idx_splits = dataset.get_idx_split()
+
+    train_mask = torch.zeros(data.x.size(0)).bool()
+    val_mask = torch.zeros(data.x.size(0)).bool()
+    test_mask = torch.zeros(data.x.size(0)).bool()
+    train_mask[idx_splits['train']] = True
+    val_mask[idx_splits['valid']] = True
+    test_mask[idx_splits['test']] = True
+    data.train_mask = train_mask
+    data.val_mask = val_mask
+    data.test_mask = test_mask
+    data.edge_index = data.adj_t.to_symmetric()
 
     nodeidx2paperid = pd.read_csv(
         'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
@@ -114,6 +128,8 @@ def preprocessing(dataset):
         data, text = get_raw_text_pubmed()
     elif dataset == 'citeseer':
         data, text = get_raw_text_citeseer()
+    elif dataset == 'ogbn-arxiv':
+        data, text = get_raw_text_arxiv()
 
     token_id = []
     attention_masks = []
