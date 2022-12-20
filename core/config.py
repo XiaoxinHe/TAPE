@@ -20,11 +20,18 @@ def set_cfg(cfg):
     cfg.logfile = None
 
     cfg.train = CN()
+    # Learning rate for language model
     cfg.train.lr_lm = 1e-5
+    # Learning rate for gnn model
     cfg.train.lr_gnn = 1e-3
+    # Learning rate patience
     cfg.train.lr_patience = 20
-    cfg.train.epochs_gnn = 200
-    cfg.train.epochs_lm = 10
+    # inner epoch
+    cfg.train.epochs = 200
+    # outer epoch
+    cfg.train.stages = 20
+    # Dropout
+    cfg.train.dropout = 0.0
     return cfg
 
 

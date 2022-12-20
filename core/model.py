@@ -1,13 +1,14 @@
 from torch_geometric.nn import GCNConv
 from transformers import PreTrainedModel
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from transformers import BertModel
 
 
 class BertClassifier(PreTrainedModel):
 
-    def __init__(self, feat_shrink):
+    def __init__(self, feat_shrink, out_dim=-1):
         model = BertModel.from_pretrained(
             'bert-base-uncased',
             output_attentions=False,
@@ -16,8 +17,10 @@ class BertClassifier(PreTrainedModel):
         super().__init__(model.config)
         self.bert_encoder = model
         self.feat_shrink_layer = torch.nn.Linear(768, feat_shrink)
+        if out_dim > 0:
+            self.readout = torch.nn.Linear(feat_shrink, out_dim)
 
-    def forward(self, batch, shrink=False):
+    def forward(self, batch, shrink=False, readout=False):
         b_input_ids, b_input_mask = batch
         output = self.bert_encoder(b_input_ids,
                                    token_type_ids=None,
@@ -27,7 +30,10 @@ class BertClassifier(PreTrainedModel):
         cls_token_emb = emb.permute(1, 0, 2)[0]
         if shrink:
             cls_token_emb = self.feat_shrink_layer(cls_token_emb)
-        return cls_token_emb
+        if readout:
+            return cls_token_emb, self.readout(cls_token_emb)
+        else:
+            return cls_token_emb
 
 
 class GCN(torch.nn.Module):
@@ -41,8 +47,8 @@ class GCN(torch.nn.Module):
         for _ in range(num_layers - 1):
             self.convs.append(
                 GCNConv(hidden_channels, hidden_channels, cached=True))
-            self.bns.append(torch.nn.BatchNorm1d(hidden_channels))
-        self.readout = torch.nn.Linear(hidden_channels, out_channels)
+            self.bns.append(nn.BatchNorm1d(hidden_channels))
+        self.readout = nn.Linear(hidden_channels, out_channels)
         self.dropout = dropout
 
     def reset_parameters(self):

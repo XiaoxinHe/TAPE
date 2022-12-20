@@ -17,6 +17,8 @@ def config_logger(cfg, OUT_PATH="results/", time=True):
         config_string = cfg.dataset
     else:
         config_string = cfg.logfile
+    config_string = config_string + '_' + \
+        datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # setup tensorboard writer
     writer_folder = os.path.join(OUT_PATH, data_name, config_string)

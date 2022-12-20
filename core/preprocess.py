@@ -141,7 +141,7 @@ def preprocessing(dataset):
         attention_masks.append(encoding_dict['attention_mask'])
     token_id = torch.cat(token_id, dim=0)
     attention_masks = torch.cat(attention_masks, dim=0)
-    print("Time: ", time.time()-start)
+    print(f"Time: {time.time()-start:.4f}")
 
     return data, token_id, attention_masks
 
@@ -156,5 +156,5 @@ def generate_node_embedding(model, dataloader, device):
         output = model(batch)
         features.append(output.detach().cpu())
     features = torch.cat(features, dim=0)
-    print("Time: ", time.time()-start)
+    print(f"Time: {time.time()-start:.4f}")
     return features

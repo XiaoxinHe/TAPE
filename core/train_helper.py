@@ -22,7 +22,7 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def run(cfg, train_gnn, train_lm):
+def run(cfg, train_gnn, test_gnn, train_lm):
     writer, logger, config_string = config_logger(cfg)
     set_seed(cfg.seed)
     data, token_id, attention_masks = preprocessing(cfg.dataset)
@@ -34,17 +34,22 @@ def run(cfg, train_gnn, train_lm):
         batch_size=BATCH_SIZE
     )
 
-    lm = BertClassifier(128)
-    features = generate_node_embedding(lm, dataloader, cfg.device)
+    lm = BertClassifier(feat_shrink=128)
+    x = generate_node_embedding(lm, dataloader, cfg.device)
+    data.x = x
     optimizer_lm = torch.optim.Adam(lm.parameters(), lr=cfg.train.lr_lm)
-    best_test_perf = float('-inf')
-    for epoch in range(1, cfg.train.epochs_lm+1):
+    best_val_acc = best_test_acc = float('-inf')
+    for epoch in range(1, cfg.train.stages+1):
         start = time.time()
-        data.x = features
-        features, test_perf = train_gnn(cfg, data)
-        if test_perf > best_test_perf:
-            best_test_perf = test_perf
+        gnn = train_gnn(cfg, data)
+        train_acc, val_acc, test_acc = test_gnn(gnn, data)
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            best_test_acc = test_acc
+        x = gnn(data.x, data.edge_index, False).detach()
+        data.x = x
         lm = lm.to(cfg.device)
-        features = train_lm(lm, dataloader, features, optimizer_lm, cfg.device)
+        x = train_lm(lm, dataloader, data, optimizer_lm, cfg.device)
+        data.x = x
         print(
-            f'[!] Epoch: {epoch:02d}, Best Test Acc So Far: {best_test_perf:.4f}, Time: {time.time()-start}')
+            f'[!] Stage: {epoch:02d}, Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {best_test_acc:.4f}, Time: {time.time()-start:.4f}')
