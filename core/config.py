@@ -32,6 +32,11 @@ def set_cfg(cfg):
     cfg.train.stages = 20
     # Dropout
     cfg.train.dropout = 0.0
+
+    cfg.model = CN()
+    cfg.model.gnn_type = 'GCNConv'
+    cfg.model.gnn_nlayer = 4
+
     return cfg
 
 

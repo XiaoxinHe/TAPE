@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 import torch_geometric.transforms as T
 from torch_geometric.nn import GCNConv, SAGEConv
-from load_pubmed import get_pubmed_casestudy
+from core.data_utils.load_pubmed import get_pubmed_casestudy
 
 
 class GCN(torch.nn.Module):
@@ -82,7 +82,7 @@ def main():
     gnn_model.cuda()
     data.cuda()
     optimizer = torch.optim.Adam(gnn_model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max',
                                                            factor=lr,
                                                            patience=20,
                                                            verbose=True)

@@ -1,3 +1,5 @@
+import imp
+from turtle import forward
 from torch_geometric.nn import GCNConv
 from transformers import PreTrainedModel
 import torch
@@ -8,7 +10,7 @@ from transformers import BertModel
 
 class BertClassifier(PreTrainedModel):
 
-    def __init__(self, feat_shrink, out_dim=-1):
+    def __init__(self, feat_shrink):
         model = BertModel.from_pretrained(
             'bert-base-uncased',
             output_attentions=False,
@@ -17,10 +19,8 @@ class BertClassifier(PreTrainedModel):
         super().__init__(model.config)
         self.bert_encoder = model
         self.feat_shrink_layer = torch.nn.Linear(768, feat_shrink)
-        if out_dim > 0:
-            self.readout = torch.nn.Linear(feat_shrink, out_dim)
 
-    def forward(self, batch, shrink=False, readout=False):
+    def forward(self, batch):
         b_input_ids, b_input_mask = batch
         output = self.bert_encoder(b_input_ids,
                                    token_type_ids=None,
@@ -28,12 +28,26 @@ class BertClassifier(PreTrainedModel):
                                    output_hidden_states=True)
         emb = output['hidden_states'][-1]  # outputs[0]=last hidden state
         cls_token_emb = emb.permute(1, 0, 2)[0]
-        if shrink:
-            cls_token_emb = self.feat_shrink_layer(cls_token_emb)
-        if readout:
-            return cls_token_emb, self.readout(cls_token_emb)
-        else:
-            return cls_token_emb
+        cls_token_emb = self.feat_shrink_layer(cls_token_emb)
+        return cls_token_emb
+
+    def generate_node_features(self, loader, device):
+        features = []
+        for batch in loader:
+            batch = tuple(t.to(device) for t in batch)
+            output = self.forward(batch)
+            features.append(output.detach().cpu())
+        features = torch.cat(features, dim=0)
+        return features
+
+
+class Z(torch.nn.Module):
+    def __init__(self, z):
+        super(Z, self).__init__()
+        self.Z = nn.Parameter(z)
+
+    def forward(self):
+        return self.Z
 
 
 class GCN(torch.nn.Module):
@@ -58,9 +72,9 @@ class GCN(torch.nn.Module):
             bn.reset_parameters()
 
     def forward(self, x, adj_t, readout=True):
-        for i, conv in enumerate(self.convs[:-1]):
+        for conv, norm in zip(self.convs, self.bns):
             x = conv(x, adj_t)
-            x = self.bns[i](x)
+            x = norm(x)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
         if readout:

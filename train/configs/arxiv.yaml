@@ -1,5 +1,5 @@
 dataset: ogbn-arxiv
 train:
   lr_gnn: 0.01
-  epochs_gnn: 500
-  epochs_lm: 20
+  epochs: 500
+  stages: 20

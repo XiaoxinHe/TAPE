@@ -1,81 +1,60 @@
 import torch
 from core.config import cfg, update_cfg
-from core.model import GCN
-from core.train_helper import run
+from core.train_helper import run_v0
 from ogb.nodeproppred import Evaluator
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 
 
 def train_gnn_epoch(model, data, optimizer):
-    model.train()
-
     optimizer.zero_grad()
     criterion = torch.nn.CrossEntropyLoss()
     out = model(data.x, data.edge_index)[data.train_mask]
     loss = criterion(out, data.y.squeeze(1)[data.train_mask])
     loss.backward()
     optimizer.step()
+    return loss
 
-    return loss.item()
 
-
-def train_gnn(cfg, data):
-    model = GCN(in_channels=768, hidden_channels=128,
-                out_channels=40, num_layers=4, dropout=0)
-    model = model.to(cfg.device)
-    data = data.to(cfg.device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.train.lr_gnn)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
-                                                           factor=0.5,
-                                                           patience=cfg.train.lr_patience,
-                                                           verbose=False)
+def train_gnn(data, model, optimizer):
     best_val_perf = best_test_perf = float('-inf')
-    best_model = model
-    for epoch in range(1, cfg.train.epochs_gnn+1):
+    for epoch in range(1, cfg.train.epochs+1):
         model.train()
         loss = train_gnn_epoch(model, data, optimizer)
-        accs = test(model, data)
-        scheduler.step(accs[-1])
-        if accs[1] > best_val_perf:
-            best_val_perf = accs[1]
-            best_test_perf = accs[2]
+        model.eval()
+        train_acc, val_acc, test_acc = test_gnn(model, data)
+        if val_acc > best_val_perf:
+            best_train_acc = train_acc
+            best_val_perf = val_acc
+            best_test_perf = test_acc
             best_model = model
         if epoch % 10 == 0:
             print(
-                f'InnerEpoch: {epoch:02d}, Loss: {loss:.4f}, Train Acc: {accs[0]:.4f}, Val Acc: {accs[1]:.4f}, Test Acc: {best_test_perf:.4f}')
+                f'Epoch: {epoch:02d}, Loss: {loss:.4f}, Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {best_test_perf:.4f}')
 
-    features = best_model(data.x, data.edge_index, False).detach()
-    return features, best_test_perf
+    x = best_model(data.x, data.edge_index, False).detach()
+    return best_train_acc, best_val_perf, best_test_perf, x
 
 
-def train_lm(lm, loader, features, optimizer, device):
-    criterion = torch.nn.CosineSimilarity()
+def train_lm(lm, loader, data, optimizer, device):
+    cos_sim = torch.nn.CosineSimilarity()
+    total_loss = 0
     for batch_idx, batch in enumerate(loader):
         optimizer.zero_grad()
         batch = tuple(t.to(device) for t in batch)
-        emb_lm = lm(batch, shrink=True)
-        gnn_emb = features[batch_idx*BATCH_SIZE:(batch_idx+1)*BATCH_SIZE]
-        loss = (1-criterion(emb_lm, gnn_emb).mean())
+        emb_lm = lm(batch)
+        gnn_emb = data.x[batch_idx*BATCH_SIZE:(batch_idx+1)*BATCH_SIZE]
+        loss = (1 - cos_sim(emb_lm, gnn_emb).mean())
         loss.backward()
         optimizer.step()
-
-    features = []
-    for batch in loader:
-        batch = tuple(t.to(device) for t in batch)
-        output = lm(batch)
-        features.append(output.detach().cpu())
-    features = torch.cat(features, dim=0)
-    return features
+        total_loss += loss.item()
+    return total_loss
 
 
 @torch.no_grad()
-def test(model, data):
-    model.eval()
-    out = model(data.x, data.adj_t)
-
+def test_gnn(model, data):
+    out = model(data.x, data.edge_index)
     y_pred = out.argmax(dim=-1, keepdim=True)
-    # y_pred = out.argmax(dim=-1)
 
     train_acc = evaluator.eval({
         'y_true': data.y[data.train_mask],
@@ -97,4 +76,4 @@ if __name__ == '__main__':
     cfg.merge_from_file('train/configs/arxiv.yaml')
     cfg = update_cfg(cfg)
     evaluator = Evaluator(name='ogbn-arxiv')
-    run(cfg, train_gnn, train_lm)
+    run_v0(cfg, train_gnn, train_lm)

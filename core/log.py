@@ -14,11 +14,11 @@ def config_logger(cfg, OUT_PATH="results/", time=True):
     # generate config_string
     os.makedirs(OUT_PATH, exist_ok=True)
     if cfg.logfile is None:
-        config_string = cfg.dataset
+        config_string = cfg.dataset + '_' + cfg.model.gnn_type
+        # config_string = config_string + '_' + \
+        #     datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     else:
         config_string = cfg.logfile
-    config_string = config_string + '_' + \
-        datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # setup tensorboard writer
     writer_folder = os.path.join(OUT_PATH, data_name, config_string)
