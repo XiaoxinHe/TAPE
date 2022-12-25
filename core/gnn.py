@@ -6,7 +6,6 @@ import core.model_utils.pyg_gnn_wrapper as gnn_wrapper
 
 class GNN(nn.Module):
     def __init__(self,
-                 nin,
                  nhid,
                  nout,
                  nlayer,

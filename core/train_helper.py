@@ -46,7 +46,7 @@ def run(cfg, train_gnn, train_lm):
         lm = lm.to(cfg.device)
         data.x = lm.generate_node_features(dataloader, cfg.device)
         data = data.to(cfg.device)
-        gnn = GNN(nin=768, nhid=128, nout=data.y.unique().size(
+        gnn = GNN(nhid=128, nout=data.y.unique().size(
             0), gnn_type=cfg.model.gnn_type, nlayer=cfg.model.gnn_nlayer, dropout=0.).to(cfg.device)
         optimizer = torch.optim.Adam(gnn.parameters(), lr=cfg.train.lr_gnn)
         train_acc, val_acc, test_acc, x = train_gnn(data, gnn, optimizer)

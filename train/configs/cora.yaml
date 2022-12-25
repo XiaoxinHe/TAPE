@@ -1,4 +1,4 @@
 dataset: cora
 train:
   lr_lm: 1e-4
-  stages: 20
+  stages: 10
