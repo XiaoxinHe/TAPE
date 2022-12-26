@@ -1,6 +1,6 @@
 import torch
 from core.config import cfg, update_cfg
-from core.train_helper import run_v0
+from core.train_helper import run
 from ogb.nodeproppred import Evaluator
 
 BATCH_SIZE = 64
@@ -76,4 +76,4 @@ if __name__ == '__main__':
     cfg.merge_from_file('train/configs/arxiv.yaml')
     cfg = update_cfg(cfg)
     evaluator = Evaluator(name='ogbn-arxiv')
-    run_v0(cfg, train_gnn, train_lm)
+    run(cfg, train_gnn, train_lm)

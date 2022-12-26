@@ -29,9 +29,11 @@ def set_cfg(cfg):
     # inner epoch
     cfg.train.epochs = 200
     # outer epoch
-    cfg.train.stages = 20
+    cfg.train.stages = 10
     # Dropout
     cfg.train.dropout = 0.0
+    # runs
+    cfg.train.runs = 4
 
     cfg.model = CN()
     cfg.model.gnn_type = 'GCNConv'

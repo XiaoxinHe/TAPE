@@ -1,4 +1,3 @@
 dataset: citeseer
 train:
   lr_gnn: 0.001
-  stages: 20
