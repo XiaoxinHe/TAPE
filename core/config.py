@@ -26,10 +26,12 @@ def set_cfg(cfg):
     cfg.train.lr_gnn = 1e-3
     # Learning rate patience
     cfg.train.lr_patience = 20
+
+    cfg.train.lr_decay = 0.5
     # inner epoch
     cfg.train.epochs = 200
     # outer epoch
-    cfg.train.stages = 10
+    cfg.train.stages = 5
     # Dropout
     cfg.train.dropout = 0.0
     # runs
@@ -38,6 +40,7 @@ def set_cfg(cfg):
     cfg.model = CN()
     cfg.model.gnn_type = 'GCNConv'
     cfg.model.gnn_nlayer = 4
+    cfg.model.res = True
 
     return cfg
 

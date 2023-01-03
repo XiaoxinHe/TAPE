@@ -67,7 +67,7 @@ def get_raw_text_citeseer():
         if pid in pid_ab:
             text.append(pid_ab[pid])
         else:
-            text.append("")
+            text.append("None")
     return data, text
 
 
@@ -118,7 +118,7 @@ def _preprocess(input_text, tokenizer):
     )
 
 
-def preprocessing(dataset):
+def preprocessing(dataset, use_text=True):
 
     print("[!] Preprocessing")
     start = time.time()
@@ -130,6 +130,9 @@ def preprocessing(dataset):
         data, text = get_raw_text_citeseer()
     elif dataset == 'ogbn-arxiv':
         data, text = get_raw_text_arxiv()
+
+    if not use_text:
+        return data
 
     token_id = []
     attention_masks = []

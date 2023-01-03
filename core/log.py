@@ -48,4 +48,4 @@ def config_logger(cfg, OUT_PATH="results/", time=True):
     print("-"*50)
     print('Time:', datetime.datetime.now().strftime("%Y/%m/%d - %H:%M"))
 
-    return writer, logger, config_string
+    return writer, logger
