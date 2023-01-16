@@ -15,12 +15,12 @@ def train_gnn(model, model_z, data, lm_z, optimizer, optimizer_z):
     z = model_z()
     out = model(z, data.edge_index)[data.train_mask]
     loss0 = criterion(out, data.y[data.train_mask])
-    loss1 = (1 - cos_sim(z, lm_z).mean())
+    loss1 = 0.01*(1 - cos_sim(z, lm_z).mean())
     loss = loss0 + loss1
     loss.backward()
     optimizer.step()
     optimizer_z.step()
-    return loss.item()
+    return loss.item(), loss0.item(), loss1.item()
 
 
 @torch.no_grad()
