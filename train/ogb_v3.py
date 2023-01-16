@@ -64,30 +64,35 @@ def pretrain_lm(model, loader, data, optimizer, device):
                                          batch_idx: BATCH_SIZE*(batch_idx+1)]
         batch_y = data.y[BATCH_SIZE*batch_idx: BATCH_SIZE * (batch_idx+1)]
         out = model(batch, readout=True)
-        pred = out.argmax(dim=-1)
-        correct = pred.eq(batch_y)
-
-        try:
-            train_acc = correct[batch_train_mask].sum(
-            ).item() / batch_train_mask.sum().item()
-        except ZeroDivisionError:
-            train_acc = 0
-        try:
-            val_acc = correct[batch_val_mask].sum(
-            ).item() / batch_val_mask.sum().item()
-        except ZeroDivisionError:
-            val_acc = 0
-        try:
-            test_acc = correct[batch_test_mask].sum(
-            ).item() / batch_test_mask.sum().item()
-        except ZeroDivisionError:
-            test_acc = 0
-
+        y_pred = out.argmax(dim=-1, keepdim=True)
         loss = criterion(out[batch_train_mask],
                          batch_y.squeeze(1)[batch_train_mask])
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
+
+        try:
+            train_acc = evaluator.eval({
+                'y_true': batch_y[batch_train_mask],
+                'y_pred': y_pred[batch_train_mask],
+            })['acc']
+        except:
+            train_acc = 0
+        try:
+            val_acc = evaluator.eval({
+                'y_true': batch_y[batch_val_mask],
+                'y_pred': y_pred[batch_val_mask],
+            })['acc']
+        except:
+            val_acc = 0
+        try:
+            test_acc = evaluator.eval({
+                'y_true': batch_y[batch_test_mask],
+                'y_pred': y_pred[batch_test_mask],
+            })['acc']
+        except:
+            test_acc = 0
+
         print(f'Step: {batch_idx:02d}, Train Loss: {loss:.4f}, '
               f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}')
 
@@ -112,22 +117,28 @@ def test_lm(model, loader, data, device):
         batch = tuple(t.to(device) for t in batch)
 
         out = model(batch, readout=True)
-        pred = out.argmax(dim=-1)
-        correct = pred.eq(batch_y)
+        y_pred = out.argmax(dim=-1, keepdim=True)
+
         try:
-            train_acc = correct[batch_train_mask].sum(
-            ).item() / batch_train_mask.sum().item()
-        except ZeroDivisionError:
+            train_acc = evaluator.eval({
+                'y_true': batch_y[batch_train_mask],
+                'y_pred': y_pred[batch_train_mask],
+            })['acc']
+        except:
             train_acc = 0
         try:
-            val_acc = correct[batch_val_mask].sum(
-            ).item() / batch_val_mask.sum().item()
-        except ZeroDivisionError:
+            val_acc = evaluator.eval({
+                'y_true': batch_y[batch_val_mask],
+                'y_pred': y_pred[batch_val_mask],
+            })['acc']
+        except:
             val_acc = 0
         try:
-            test_acc = correct[batch_test_mask].sum(
-            ).item() / batch_test_mask.sum().item()
-        except ZeroDivisionError:
+            test_acc = evaluator.eval({
+                'y_true': batch_y[batch_test_mask],
+                'y_pred': y_pred[batch_test_mask],
+            })['acc']
+        except:
             test_acc = 0
 
         train_accs.append(train_acc)
