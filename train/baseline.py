@@ -63,8 +63,8 @@ def test_arxiv(model, data):
 if __name__ == '__main__':
     cfg.merge_from_file('train/configs/cora.yaml')
     cfg = update_cfg(cfg)
-    if cfg.dataset == 'ogbn-arxiv':
-        evaluator = Evaluator(name='ogbn-arxiv')
+    if 'ogbn' in cfg.dataset:
+        evaluator = Evaluator(name=cfg.dataset)
         run(cfg, train_arxiv, test_arxiv)
     else:
         run(cfg, train_gnn, test_gnn)

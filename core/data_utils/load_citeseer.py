@@ -7,7 +7,10 @@ import os.path as osp
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 import scipy.sparse as sp
+
 # return citeseer dataset as pytorch geometric Data object together with 60/20/20 split, and list of citeseer IDs
+
+
 def get_citeseer_casestudy():
     data_X, data_Y, data_citeid, data_edges = parse_citeseer()
     # data_X = sklearn.preprocessing.normalize(data_X, norm="l1")
@@ -35,28 +38,57 @@ def get_citeseer_casestudy():
     np.random.shuffle(node_id)
 
     data.train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
-    data.val_id = np.sort(node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
+    data.val_id = np.sort(
+        node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
     data.test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
 
-    data.train_mask = torch.tensor([x in data.train_id for x in range(data.num_nodes)])
-    data.val_mask = torch.tensor([x in data.val_id for x in range(data.num_nodes)])
-    data.test_mask = torch.tensor([x in data.test_id for x in range(data.num_nodes)])
+    data.train_mask = torch.tensor(
+        [x in data.train_id for x in range(data.num_nodes)])
+    data.val_mask = torch.tensor(
+        [x in data.val_id for x in range(data.num_nodes)])
+    data.test_mask = torch.tensor(
+        [x in data.test_id for x in range(data.num_nodes)])
 
     return data, data_citeid
 
-#credit: https://github.com/tkipf/pygcn/issues/27, xuhaiyun
+# credit: https://github.com/tkipf/pygcn/issues/27, xuhaiyun
+
+
 def parse_citeseer():
     path = 'dataset/CiteSeer-Orig/citeseer'
-    idx_features_labels = np.genfromtxt("{}.content".format(path), dtype=np.dtype(str))
-    data_X = idx_features_labels[:,1:-1].astype(np.float)
+    idx_features_labels = np.genfromtxt(
+        "{}.content".format(path), dtype=np.dtype(str))
+    data_X = idx_features_labels[:, 1:-1].astype(np.float)
     labels = idx_features_labels[:, -1]
-    class_map = {x:i for i,x in enumerate(['Agents','AI','DB','IR','ML','HCI'])}
+    class_map = {x: i for i, x in enumerate(
+        ['Agents', 'AI', 'DB', 'IR', 'ML', 'HCI'])}
     data_Y = np.array([class_map[l] for l in labels])
     data_citeid = idx_features_labels[:, 0]
     idx = np.array(data_citeid, dtype=np.dtype(str))
     idx_map = {j: i for i, j in enumerate(idx)}
-    edges_unordered = np.genfromtxt("{}.cites".format(path), dtype=np.dtype(str))
-    edges = np.array(list(map(idx_map.get, edges_unordered.flatten()))).reshape(edges_unordered.shape)
+    edges_unordered = np.genfromtxt(
+        "{}.cites".format(path), dtype=np.dtype(str))
+    edges = np.array(list(map(idx_map.get, edges_unordered.flatten()))).reshape(
+        edges_unordered.shape)
     data_edges = np.array(edges[~(edges == None).max(1)], dtype='int')
     data_edges = np.vstack((data_edges, np.fliplr(data_edges)))
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
+
+
+def get_raw_text_citeseer():
+    data, data_citeid = get_citeseer_casestudy()
+    with open('dataset/CiteSeer-Orig/citeseer_texts.txt') as f:
+        lines = f.read().splitlines()
+    paper_ids = [lines[i] for i in range(len(lines)) if i % 3 == 0]
+    abstracts = [lines[i] for i in range(len(lines)) if i % 3 == 1]
+    # labels = [lines[i] for i in range(len(lines)) if i % 3 == 2]
+    pid_ab = {}
+    for i, j in zip(paper_ids, abstracts):
+        pid_ab[i] = j
+    text = []
+    for pid in data_citeid:
+        if pid in pid_ab:
+            text.append(pid_ab[pid])
+        else:
+            text.append("None")
+    return data, text

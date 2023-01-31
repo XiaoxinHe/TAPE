@@ -6,6 +6,7 @@ import os.path as osp
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 import scipy.sparse as sp
+from tqdm import tqdm
 
 # return cora dataset as pytorch geometric Data object together with 60/20/20 split, and list of cora IDs
 
@@ -73,3 +74,29 @@ def parse_cora():
     data_edges = np.array(edges[~(edges == None).max(1)], dtype='int')
     data_edges = np.vstack((data_edges, np.fliplr(data_edges)))
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
+
+
+def get_raw_text_cora():
+    data, data_citeid = get_cora_casestudy()
+    with open('dataset/Cora-Orig/mccallum/cora/papers')as f:
+        lines = f.readlines()
+    pid_filename = {}
+    for line in lines:
+        pid = line.split('\t')[0]
+        fn = line.split('\t')[1]
+        pid_filename[pid] = fn
+
+    path = 'dataset/Cora-Orig/mccallum/cora/extractions/'
+    text = []
+    for pid in tqdm(data_citeid):
+        fn = pid_filename[pid]
+        with open(path+fn) as f:
+            lines = f.read().splitlines()
+
+        for line in lines:
+            if 'Title:' in line:
+                ti = line
+            if 'Abstract:' in line:
+                ab = line
+        text.append(ti+'\n'+ab)
+    return data, text

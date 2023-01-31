@@ -2,11 +2,11 @@ import numpy as np
 # adapted from https://github.com/jcatw/scnn
 import torch
 import random
-import sklearn
-import os.path as osp
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
 from sklearn.preprocessing import normalize
+import json
+import pandas as pd
 
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
 
@@ -134,3 +134,18 @@ def parse_pubmed():
                     (paper_to_index[tail], paper_to_index[head]))
 
     return data_A, data_X, data_Y, data_pubid, np.unique(data_edges, axis=0).transpose()
+
+
+def get_raw_text_pubmed():
+    data, data_pubid = get_pubmed_casestudy()
+    f = open('dataset/Pubmed-Diabetes/pubmed.json')
+    pubmed = json.load(f)
+    df_pubmed = pd.DataFrame.from_dict(pubmed)
+
+    AB = df_pubmed['AB'].fillna("")
+    TI = df_pubmed['TI'].fillna("")
+    text = []
+    for ti, ab in zip(TI, AB):
+        t = 'Title: ' + ti + '\n'+'Abstract: ' + ab
+        text.append(t)
+    return data, text

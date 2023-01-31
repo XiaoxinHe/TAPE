@@ -368,14 +368,15 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
 
             for epoch in range(1, cfg.train.epochs+1):
                 new_best_str = ''
-                loss, loss_gnn, loss_z = train_gnn(gnn, model_z, data, lm_z, optimizer_gnn, optimizer_z)
+                loss, loss_gnn, loss_z = train_gnn(
+                    gnn, model_z, data, lm_z, optimizer_gnn, optimizer_z)
                 train_acc, val_acc, test_acc = test_gnn(gnn, model_z, data)
                 if val_acc > best_val:
                     best_val = val_acc
                     best_test = test_acc
                     new_best_str = ' (new best test)'
                 print(
-                    f'{epoch:02d}/{stage:02d}, '
+                    f'Stage: {stage:02d}, Epoch: {epoch:02d}, '
                     f'Loss: {loss:.4f}, loss(GNN): {loss_gnn:.4f}, loss(Z): {loss_z:.4f}, '
                     f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, '
                     f'Best Test Acc: {best_test:.4f}{new_best_str}')

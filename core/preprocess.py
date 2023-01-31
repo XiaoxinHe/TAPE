@@ -1,104 +1,6 @@
 import time
-from tqdm import tqdm
-from ogb.nodeproppred import PygNodePropPredDataset
-from core.data_utils.load_cora import get_cora_casestudy
-from core.data_utils.load_pubmed import get_pubmed_casestudy
-from core.data_utils.load_citeseer import get_citeseer_casestudy
 from transformers import BertTokenizer
 import torch
-import json
-import pandas as pd
-import torch_geometric.transforms as T
-
-
-def get_raw_text_cora():
-    data, data_citeid = get_cora_casestudy()
-    with open('dataset/Cora-Orig/mccallum/cora/papers')as f:
-        lines = f.readlines()
-    pid_filename = {}
-    for line in lines:
-        pid = line.split('\t')[0]
-        fn = line.split('\t')[1]
-        pid_filename[pid] = fn
-
-    path = 'dataset/Cora-Orig/mccallum/cora/extractions/'
-    text = []
-    for pid in tqdm(data_citeid):
-        fn = pid_filename[pid]
-        with open(path+fn) as f:
-            lines = f.read().splitlines()
-
-        for line in lines:
-            if 'Title:' in line:
-                ti = line
-            if 'Abstract:' in line:
-                ab = line
-        text.append(ti+'\n'+ab)
-    return data, text
-
-
-def get_raw_text_pubmed():
-    data, data_pubid = get_pubmed_casestudy()
-    f = open('dataset/Pubmed-Diabetes/pubmed.json')
-    pubmed = json.load(f)
-    df_pubmed = pd.DataFrame.from_dict(pubmed)
-
-    AB = df_pubmed['AB'].fillna("")
-    TI = df_pubmed['TI'].fillna("")
-    text = []
-    for ti, ab in zip(TI, AB):
-        t = 'Title: ' + ti + '\n'+'Abstract: ' + ab
-        text.append(t)
-    return data, text
-
-
-def get_raw_text_citeseer():
-    data, data_citeid = get_citeseer_casestudy()
-    with open('dataset/CiteSeer-Orig/citeseer_texts.txt') as f:
-        lines = f.read().splitlines()
-    paper_ids = [lines[i] for i in range(len(lines)) if i % 3 == 0]
-    abstracts = [lines[i] for i in range(len(lines)) if i % 3 == 1]
-    # labels = [lines[i] for i in range(len(lines)) if i % 3 == 2]
-    pid_ab = {}
-    for i, j in zip(paper_ids, abstracts):
-        pid_ab[i] = j
-    text = []
-    for pid in data_citeid:
-        if pid in pid_ab:
-            text.append(pid_ab[pid])
-        else:
-            text.append("None")
-    return data, text
-
-
-def get_raw_text_arxiv():
-    dataset = PygNodePropPredDataset(
-        'ogbn-arxiv', transform=T.ToSparseTensor())
-    data = dataset[0]
-    idx_splits = dataset.get_idx_split()
-
-    train_mask = torch.zeros(data.x.size(0)).bool()
-    val_mask = torch.zeros(data.x.size(0)).bool()
-    test_mask = torch.zeros(data.x.size(0)).bool()
-    train_mask[idx_splits['train']] = True
-    val_mask[idx_splits['valid']] = True
-    test_mask[idx_splits['test']] = True
-    data.train_mask = train_mask
-    data.val_mask = val_mask
-    data.test_mask = test_mask
-    data.edge_index = data.adj_t.to_symmetric()
-
-    nodeidx2paperid = pd.read_csv(
-        'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
-
-    raw_text = pd.read_csv('dataset/ogbn_arxiv/titleabs.tsv',
-                           sep='\t', header=None, names=['paper id', 'title', 'abs'])
-    df = pd.merge(nodeidx2paperid, raw_text, on='paper id')
-    text = []
-    for ti, ab in zip(df['title'], df['abs']):
-        t = 'Title: ' + ti + '\n' + 'Abstract: ' + ab
-        text.append(t)
-    return data, text
 
 
 def _preprocess(input_text, tokenizer):
@@ -123,14 +25,17 @@ def preprocessing(dataset, use_text=True):
     print("[!] Preprocessing")
     start = time.time()
     if dataset == 'cora':
-        data, text = get_raw_text_cora()
+        from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
     elif dataset == 'pubmed':
-        data, text = get_raw_text_pubmed()
+        from core.data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
     elif dataset == 'citeseer':
-        data, text = get_raw_text_citeseer()
+        from core.data_utils.load_citeseer import get_raw_text_citeseer as get_raw_text
     elif dataset == 'ogbn-arxiv':
-        data, text = get_raw_text_arxiv()
+        from core.data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
+    elif dataset == 'ogbn-products':
+        from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
+    data, text = get_raw_text()
     if not use_text:
         return data
 
