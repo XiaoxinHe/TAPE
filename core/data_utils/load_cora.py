@@ -1,12 +1,10 @@
 import numpy as np
 import torch
 import random
-import sklearn
-import os.path as osp
+
 from torch_geometric.datasets import Planetoid
 import torch_geometric.transforms as T
-import scipy.sparse as sp
-from tqdm import tqdm
+
 
 # return cora dataset as pytorch geometric Data object together with 60/20/20 split, and list of cora IDs
 
@@ -88,7 +86,7 @@ def get_raw_text_cora():
 
     path = 'dataset/Cora-Orig/mccallum/cora/extractions/'
     text = []
-    for pid in tqdm(data_citeid):
+    for pid in data_citeid:
         fn = pid_filename[pid]
         with open(path+fn) as f:
             lines = f.read().splitlines()
