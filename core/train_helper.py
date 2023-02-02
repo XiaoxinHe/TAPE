@@ -8,6 +8,7 @@ from core.preprocess import preprocessing
 from core.log import config_logger
 from core.model import BertClassifier, BertClassifierNodePred, BertClassifierV2, Z
 from core.gnn import GNN
+from ogb.nodeproppred import Evaluator
 
 BATCH_SIZE = 32
 
@@ -319,6 +320,15 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
         sampler=SequentialSampler(dataset),
         batch_size=BATCH_SIZE
     )
+    if "ogbn" in cfg.dataset:
+        evaluator = Evaluator(name=cfg.dataset)
+    else:
+        evaluator = None
+
+    split_masks = {}
+    split_masks['train'] = data.train_mask
+    split_masks['valid'] = data.val_mask
+    split_masks['test'] = data.test_mask
 
     NOUT = data.y.unique().size(0)
     seeds = [41, 95, 12, 35]
@@ -341,7 +351,7 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
             print("[!] Pretraining LM")
             loss = pretrain_lm(lm, dataloader, data, optimizer_lm, cfg.device)
             train_acc, val_acc, test_acc = test_lm(
-                lm, dataloader, data, cfg.device)
+                lm, dataloader, data, split_masks, evaluator, cfg.device)
             print(f'Loss: {loss:.4f}, '
                   f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}\n')
 
@@ -370,14 +380,15 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                 new_best_str = ''
                 loss, loss_gnn, loss_z = train_gnn(
                     gnn, model_z, data, lm_z, optimizer_gnn, optimizer_z)
-                train_acc, val_acc, test_acc = test_gnn(gnn, model_z, data)
+                train_acc, val_acc, test_acc = test_gnn(
+                    gnn, model_z, data, split_masks, evaluator)
                 if val_acc > best_val:
                     best_val = val_acc
                     best_test = test_acc
                     new_best_str = ' (new best test)'
                 print(
                     f'Stage: {stage:02d}, Epoch: {epoch:02d}, '
-                    f'Loss: {loss:.4f}, loss(GNN): {loss_gnn:.4f}, loss(Z): {loss_z:.4f}, '
+                    f'Loss: {loss:.4f}, loss(GNN): {loss_gnn:.4f}, loss(Z): {loss_z:.8f}, '
                     f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, '
                     f'Best Test Acc: {best_test:.4f}{new_best_str}')
 

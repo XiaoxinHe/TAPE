@@ -1,48 +1,29 @@
-
 import numpy as np
 import torch
 from torch_geometric.transforms import ToSparseTensor, ToUndirected
 from core.model_utils.EnGCN import EnGCN
 from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
+from core.preprocess import preprocessing
 
 
-def load_data(dataset_name, to_sparse=True):
-    if dataset_name in ["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]:
+def load_data(dataset_name):
 
-        T = ToSparseTensor() if to_sparse else lambda x: x
-        if to_sparse and dataset_name == "ogbn-arxiv":
-            def T(x): return ToSparseTensor()(ToUndirected()(x))
-        dataset = PygNodePropPredDataset(dataset_name, transform=T)
-        processed_dir = dataset.processed_dir
-        split_idx = dataset.get_idx_split()
-        evaluator = Evaluator(name=dataset_name)
-        data = dataset[0]
-        split_masks = {}
-        for split in ["train", "valid", "test"]:
-            mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-            mask[split_idx[split]] = True
-            data[f"{split}_mask"] = mask
-            split_masks[f"{split}"] = data[f"{split}_mask"]
-
-        x = data.x
-        y = data.y = data.y.squeeze()
-
-    elif dataset_name in ['cora', 'pubmed', 'citeseer']:
-        from core.preprocess import preprocessing
-        data = preprocessing(dataset_name, use_text=False)
-        
+    data = preprocessing(dataset_name)
+    if "ogbn" not in dataset_name:
         trans = ToSparseTensor()
         data = trans(data)
-        x = data.x
-        y = data.y
-        split_masks = {}
-        split_masks['train'] = data.train_mask
-        split_masks['valid'] = data.val_mask
-        split_masks['test'] = data.test_mask
-        evaluator = None
-        processed_dir = 'dataset/cora/processed'
+    x = data.x
+    split_masks = {}
+    split_masks['train'] = data.train_mask
+    split_masks['valid'] = data.val_mask
+    split_masks['test'] = data.test_mask
+    if "ogb" in dataset_name:
+        evaluator = Evaluator(name=dataset_name)
+        y = data.y = data.y.squeeze()
     else:
-        raise Exception(f"the dataset of {dataset} has not been implemented")
+        evaluator = None
+        y = data.y
+    processed_dir = 'dataset/'+dataset_name+'/processed'
     return data, x, y, split_masks, evaluator, processed_dir
 
 
@@ -74,7 +55,7 @@ class trainer(object):
             self.split_masks,
             self.evaluator,
             self.processed_dir,
-        ) = load_data(args.dataset, args.tosparse)
+        ) = load_data(args.dataset)
 
         print('load from OGB feature!')
         if self.type_model == "EnGCN":

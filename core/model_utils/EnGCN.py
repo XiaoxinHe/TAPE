@@ -125,7 +125,10 @@ class EnGCN(torch.nn.Module):
             # ).to(torch.float)
             del val, pred, SLE_mask, SLE_pred
             gc.collect()
-            y_emb, x = self.propagate(y_emb), self.propagate(x)
+            y_emb = y_emb.to(device)
+            x = x.to(device)
+            y_emb = self.propagate(y_emb)
+            x = self.propagate(x)
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)

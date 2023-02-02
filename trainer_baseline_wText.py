@@ -1,10 +1,10 @@
 
 import numpy as np
 import torch
-from torch_geometric.transforms import ToSparseTensor, ToUndirected
-from core.model_utils.EnGCN_LM import EnGCN
-from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
-from core.model import BertClassifierV2, Z
+from torch_geometric.transforms import ToSparseTensor
+from core.model_utils.EnGCN import EnGCN
+from ogb.nodeproppred import Evaluator
+from core.model import BertClassifierV2
 from torch.utils.data import TensorDataset, DataLoader, SequentialSampler
 from train.v3 import pretrain_lm, test_lm
 import time
@@ -90,25 +90,22 @@ class trainer(object):
         print(f'Loss: {loss:.4f}, '
               f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
 
-        lm_z = self.lm.generate_node_features(self.dataloader, self.device)
-        model_z = Z(z=lm_z.detach().clone()).to(self.device)
-
         self.model = EnGCN(
             args,
             self.data,
-            self.evaluator,
-            model_z
+            self.evaluator
         )
         self.model.to(self.device)
-        self.optimizer_gnn = torch.optim.Adam(
+        self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay
         )
 
     def train_ensembling(self, seed):
         # assert isinstance(self.model, (SAdaGCN, AdaGCN, GBGCN))
         input_dict = self.get_input_dict(0)
-        lm_z = self.lm.generate_node_features(self.dataloader, self.device)
-        acc = self.model.train_and_test(input_dict, lm_z)
+        input_dict["x"] = self.lm.generate_node_features(
+            self.dataloader, self.device)
+        acc = self.model.train_and_test(input_dict)
         return acc
 
     def get_input_dict(self, epoch):
@@ -120,7 +117,7 @@ class trainer(object):
                 "data": self.data,
                 "x": self.x,
                 "y": self.y,
-                "optimizer": self.optimizer_gnn,
+                "optimizer": self.optimizer,
                 "loss_op": self.loss_op,
                 "device": self.device,
             }

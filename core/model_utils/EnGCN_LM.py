@@ -189,10 +189,11 @@ class EnGCN(torch.nn.Module):
     def train_weak_learner(self, hop, y_emb, pseudo_labels, origin_labels, split_mask, device, loss_op, lm_z):
         pesudo_labels_train = pseudo_labels[split_mask["train"]]
         y_emb_train = y_emb[split_mask["train"]]
+        lm_z_train = lm_z[split_mask["train"]]
+
         train_set = torch.utils.data.TensorDataset(
-            y_emb_train, pesudo_labels_train)
-        train_loader = torch.utils.data.DataLoader(
-            train_set, batch_size=self.batch_size, num_workers=8, pin_memory=True)
+            y_emb_train, pesudo_labels_train, lm_z_train)
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=self.batch_size)
 
         optimizer_z = torch.optim.Adam(self.model_z.parameters(), lr=1e-4)
         best_valid_acc = 0.0
@@ -201,7 +202,7 @@ class EnGCN(torch.nn.Module):
             use_label_mlp = False  # warm up
         for epoch in range(self.epochs):
             loss, loss0, loss1, _train_acc = self.model.train_net(
-                loss_op, train_loader, device, use_label_mlp, self.model_z, optimizer_z, split_mask, self.batch_size)
+                train_loader, loss_op, device, use_label_mlp, self.model_z, optimizer_z, split_mask, self.batch_size)
             if (epoch + 1) % self.interval == 0:
                 use_label_mlp = False if hop == 0 else self.use_label_mlp
                 x = self.model_z()
@@ -212,7 +213,7 @@ class EnGCN(torch.nn.Module):
                     f"Epoch: {epoch:02d}, "
                     f"Loss: {loss:.4f}, "
                     f"Loss(GNN): {loss0:.4f}, "
-                    f"Loss(Z): {loss1:.4f}, "
+                    f"Loss(Z): {loss1:.8f}, "
                     f"Train acc: {acc['train']*100:.4f}, "
                     f"Valid acc: {acc['valid']*100:.4f}, "
                     f"Test acc: {acc['test']*100:.4f}"

@@ -20,6 +20,7 @@ def get_raw_text_arxiv():
     data.val_mask = val_mask
     data.test_mask = test_mask
     data.edge_index = data.adj_t.to_symmetric()
+    data.y = data.y.squeeze()
 
     nodeidx2paperid = pd.read_csv(
         'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
