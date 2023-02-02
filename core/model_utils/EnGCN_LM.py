@@ -1,10 +1,7 @@
 import gc
 import os
-import time
-import uuid
 import torch
 import torch.nn.functional as F
-from torch_sparse import SparseTensor
 from core.model_utils.WeakLearners_LM import MLP_SLE
 
 
@@ -33,7 +30,7 @@ class EnGCN(torch.nn.Module):
         self.multi_label = args.multi_label
         self.interval = args.eval_steps
         self.exp_name = args.exp_name
-
+        # new
         self.model_z = model_z
 
         deg = data.adj_t.sum(dim=1).to(torch.float)
@@ -59,14 +56,15 @@ class EnGCN(torch.nn.Module):
     def to(self, device):
         self.model.to(device)
 
-    def train_and_test(self, input_dict, lm_z):
+    def train_and_test(self, input_dict):
 
-        device, split_masks, x, y, loss_op = (
+        device, split_masks, x, y, loss_op, lm_z = (
             input_dict["device"],
             input_dict["split_masks"],
             input_dict["x"],
             input_dict["y"],
             input_dict["loss_op"],
+            input_dict["lm_z"]
         )
         del input_dict
         gc.collect()
@@ -88,7 +86,9 @@ class EnGCN(torch.nn.Module):
                 pseudo_split_masks["train"].sum() / len(y)
             )
         )
-
+        
+        
+        # x = self.model_z()
         for i in range(self.num_layers):
             # NOTE: here the num_layers should be the stages in original SAGN
             print(f"\n------ training weak learner with hop {i} ------")
@@ -101,15 +101,17 @@ class EnGCN(torch.nn.Module):
                 pseudo_split_masks,
                 device,
                 loss_op,
+                # new
                 lm_z
             )
             self.model.load_state_dict(
                 torch.load(
-                    f"./.cache/{self.exp_name}_{self.dataset}_MLP_SLE_LM.pt")
+                    f"./.cache/{self.exp_name}_{self.dataset}_MLP_SLE_TAG.pt")
             )
 
             # make prediction
             use_label_mlp = False if i == 0 else self.use_label_mlp
+            
             x = self.model_z()
             out = self.model.inference(x, y_emb, device, use_label_mlp)
 
@@ -129,13 +131,16 @@ class EnGCN(torch.nn.Module):
             # y_emb[pseudo_split_masks["train"]] = F.one_hot(
             #     pseudo_labels[pseudo_split_masks["train"]], num_classes=self.num_classes
             # ).to(torch.float)
+
             del val, pred, SLE_mask, SLE_pred
             gc.collect()
-
-            # x = x.clone().detach()
-            y_emb = y_emb.to(device)
-            y_emb = self.propagate(y_emb)
-            x = self.propagate(x)
+            y_emb = self.propagate(y_emb.to(device))
+            x = self.propagate(x.to(device))
+            # y_emb = self.propagate(y_emb)
+            # x = self.propagate(x)
+            with torch.no_grad():
+                self.model_z.Z = torch.nn.Parameter(x.clone())
+            
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)
@@ -156,11 +161,11 @@ class EnGCN(torch.nn.Module):
             f"Final valid acc: {acc['valid']*100:.4f}, "
             f"Dianl test acc: {acc['test']*100:.4f}"
         )
-        dirs = f"./output/{self.dataset}/"
-        if not os.path.exists(dirs):
-            os.makedirs(dirs)
-        checkpt_file = dirs + uuid.uuid4().hex
-        torch.save(out, checkpt_file + f'EnGCN.pt')
+        # dirs = f"./output/{self.dataset}/"
+        # if not os.path.exists(dirs):
+        #     os.makedirs(dirs)
+        # checkpt_file = dirs + uuid.uuid4().hex
+        # torch.save(out, checkpt_file + f'EnGCN.pt')
         return acc["train"], acc["valid"], acc["test"]
 
     def evaluate(self, out, y, split_mask):
@@ -187,12 +192,13 @@ class EnGCN(torch.nn.Module):
         return out, acc
 
     def train_weak_learner(self, hop, y_emb, pseudo_labels, origin_labels, split_mask, device, loss_op, lm_z):
+        # x = self.model_z()
+        # x_train = x[split_mask["train"]]
         pesudo_labels_train = pseudo_labels[split_mask["train"]]
         y_emb_train = y_emb[split_mask["train"]]
         lm_z_train = lm_z[split_mask["train"]]
 
-        train_set = torch.utils.data.TensorDataset(
-            y_emb_train, pesudo_labels_train, lm_z_train)
+        train_set = torch.utils.data.TensorDataset(y_emb_train, pesudo_labels_train, lm_z_train)
         train_loader = torch.utils.data.DataLoader(train_set, batch_size=self.batch_size)
 
         optimizer_z = torch.optim.Adam(self.model_z.parameters(), lr=1e-4)
@@ -224,5 +230,5 @@ class EnGCN(torch.nn.Module):
                         os.mkdir(".cache/")
                     torch.save(
                         self.model.state_dict(),
-                        f"./.cache/{self.exp_name}_{self.dataset}_MLP_SLE_LM.pt",
+                        f"./.cache/{self.exp_name}_{self.dataset}_MLP_SLE_TAG.pt",
                     )

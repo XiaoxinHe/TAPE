@@ -1,29 +1,33 @@
+from ogb.nodeproppred import Evaluator
+from core.preprocess import preprocessing
+from torch_geometric.transforms import Compose
 import numpy as np
 import torch
 from torch_geometric.transforms import ToSparseTensor, ToUndirected
 from core.model_utils.EnGCN import EnGCN
-from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
-from core.preprocess import preprocessing
 
 
-def load_data(dataset_name):
-
-    data = preprocessing(dataset_name)
-    if "ogbn" not in dataset_name:
-        trans = ToSparseTensor()
-        data = trans(data)
-    x = data.x
+def load_data(dataset_name, to_sparse=True):
+    data = preprocessing(dataset_name, use_text=False)
     split_masks = {}
     split_masks['train'] = data.train_mask
     split_masks['valid'] = data.val_mask
     split_masks['test'] = data.test_mask
-    if "ogb" in dataset_name:
-        evaluator = Evaluator(name=dataset_name)
+
+    if "ogbn" in dataset_name:
+        trans = Compose([ToUndirected(), ToSparseTensor()])
+        data = trans(data)
+        x = data.x
         y = data.y = data.y.squeeze()
+        evaluator = Evaluator(name=dataset_name)
     else:
-        evaluator = None
+        trans = ToSparseTensor()
+        data = trans(data)
+        x = data.x
         y = data.y
+        evaluator = None
     processed_dir = 'dataset/'+dataset_name+'/processed'
+
     return data, x, y, split_masks, evaluator, processed_dir
 
 
@@ -55,9 +59,18 @@ class trainer(object):
             self.split_masks,
             self.evaluator,
             self.processed_dir,
-        ) = load_data(args.dataset)
+        ) = load_data(args.dataset, args.tosparse)
 
-        print('load from OGB feature!')
+        #! load emb from LM
+        if args.LM_emb_path != None:
+            self.x = torch.from_numpy(np.array(np.memmap(
+                args.LM_emb_path, mode='r', dtype=np.float16, shape=(169343, 768)))).to(torch.float32)
+            print('load from GLEM:LM!')
+        elif args.GIANT != None:
+            self.x = torch.tensor(np.load(args.GIANT)).float()
+        else:
+            print('load from OGB feature!')
+
         if self.type_model == "EnGCN":
             self.model = EnGCN(
                 args,

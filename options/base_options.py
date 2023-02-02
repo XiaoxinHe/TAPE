@@ -18,7 +18,7 @@ class BaseOptions:
         parser.add_argument(
             "--dataset",
             type=str,
-            default="ogbn-arxiv",
+            default="cora",
             required=False,
             help="The input dataset.",
             choices=[

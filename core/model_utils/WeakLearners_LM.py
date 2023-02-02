@@ -42,50 +42,45 @@ class MLP_SLE(torch.nn.Module):
             out += self.label_mlp(y).mean(1)
         return out
 
-    def load(self):
-        self.base_mlp.load_state_dict(
-            torch.load(
-                f"./.cache/{self.type_model}_{self.dataset}_base_mlp_LM.pt")
-        )
-        self.label_mlp.load_state_dict(
-            torch.load(
-                f"./.cache/{self.type_model}_{self.dataset}_label_mlp_LM.pt")
-        )
-
     def train_net(self, train_loader, loss_op, device, use_label_mlp, model_z, optimizer_z, split_mask, batch_size):
         self.train()
+        total_correct, total_loss = 0, 0.0
+        y_true, y_preds = [], []
+        
         model_z.train()
         cos_sim = torch.nn.CosineSimilarity()
-        total_correct, total_loss, total_loss0, total_loss1 = 0, 0.0, 0.0, 0.0
-        y_true, y_preds = [], []
-
+        total_loss0, total_loss1 =  0.0, 0.0
+         
         for batch_idx, (y_emb, y, lm_z) in enumerate(train_loader):
-            z = model_z()[split_mask["train"]][batch_idx *
+            x = model_z()[split_mask["train"]][batch_idx *
                                                batch_size: (batch_idx+1)*batch_size]
-            z.to(device)
+            x = x.to(device)
             y = y.to(device)
             y_emb = y_emb.to(device)
             lm_z = lm_z.to(device)
+            
             self.optimizer.zero_grad()
-            optimizer_z.zero_grad()
-            out = self(z, y_emb, use_label_mlp)
+            out = self(x, y_emb, use_label_mlp)
             if isinstance(loss_op, torch.nn.NLLLoss):
                 out = F.log_softmax(out, dim=-1)
             elif isinstance(loss_op, torch.nn.BCEWithLogitsLoss):
                 y = y.float()
             loss0 = loss_op(out, y)
             loss0 = loss0.mean()
-            loss1 = self.alpha * (1 - cos_sim(z, lm_z).mean())
+            loss1 = self.alpha * (1 - cos_sim(x, lm_z).mean())
+            
             loss = loss0 + loss1
-            loss.backward()
             total_loss += float(loss.item())
             total_loss0 += float(loss0.item())
             total_loss1 += float(loss1.item())
+            
+            loss.backward()
             self.optimizer.step()
             optimizer_z.step()
+
             y_preds.append(out.argmax(dim=-1).detach().cpu())
             y_true.append(y.detach().cpu())
-
+            
         y_true = torch.cat(y_true, 0)
         y_preds = torch.cat(y_preds, 0)
         total_correct = y_preds.eq(y_true).sum().item()

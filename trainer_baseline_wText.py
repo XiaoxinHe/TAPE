@@ -80,15 +80,16 @@ class trainer(object):
             sampler=SequentialSampler(dataset),
             batch_size=BATCH_SIZE
         )
-        print("[!] Pretraining LM")
-        start = time.time()
-        self.data = self.data.to(self.device)
-        loss = pretrain_lm(self.lm, self.dataloader,
-                           self.data, self.optimizer_lm, self.device)
-        train_acc, val_acc, test_acc = test_lm(
-            self.lm, self.dataloader, self.data, self.split_masks, self.evaluator, self.device)
-        print(f'Loss: {loss:.4f}, '
-              f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
+        
+        # print("[!] Pretraining LM")
+        # start = time.time()
+        # self.data = self.data.to(self.device)
+        # loss = pretrain_lm(self.lm, self.dataloader,
+        #                    self.data, self.optimizer_lm, self.device)
+        # train_acc, val_acc, test_acc = test_lm(
+        #     self.lm, self.dataloader, self.data, self.split_masks, self.evaluator, self.device)
+        # print(f'Loss: {loss:.4f}, '
+        #       f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
 
         self.model = EnGCN(
             args,

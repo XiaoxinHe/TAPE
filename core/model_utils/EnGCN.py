@@ -109,26 +109,27 @@ class EnGCN(torch.nn.Module):
             # make prediction
             use_label_mlp = False if i == 0 else self.use_label_mlp
             out = self.model.inference(x, y_emb, device, use_label_mlp)
+
             # self training: add hard labels
             val, pred = torch.max(F.softmax(out, dim=1), dim=1)
             SLE_mask = val >= self.SLE_threshold
             SLE_pred = pred[SLE_mask]
+
             # SLE_pred U y
             pseudo_split_masks["train"] = pseudo_split_masks["train"].logical_or(
                 SLE_mask
             )
             pseudo_labels[SLE_mask] = SLE_pred
             pseudo_labels[split_masks["train"]] = y[split_masks["train"]]
+
             # update y_emb
             # y_emb[pseudo_split_masks["train"]] = F.one_hot(
             #     pseudo_labels[pseudo_split_masks["train"]], num_classes=self.num_classes
             # ).to(torch.float)
+
             del val, pred, SLE_mask, SLE_pred
             gc.collect()
-            y_emb = y_emb.to(device)
-            x = x.to(device)
-            y_emb = self.propagate(y_emb)
-            x = self.propagate(x)
+            y_emb, x = self.propagate(y_emb), self.propagate(x)
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)
@@ -149,11 +150,11 @@ class EnGCN(torch.nn.Module):
             f"Final valid acc: {acc['valid']*100:.4f}, "
             f"Dianl test acc: {acc['test']*100:.4f}"
         )
-        dirs = f"./output/{self.dataset}/"
-        if not os.path.exists(dirs):
-            os.makedirs(dirs)
-        checkpt_file = dirs + uuid.uuid4().hex
-        torch.save(out, checkpt_file + f'EnGCN.pt')
+        # dirs = f"./output/{self.dataset}/"
+        # if not os.path.exists(dirs):
+        #     os.makedirs(dirs)
+        # checkpt_file = dirs + uuid.uuid4().hex
+        # torch.save(out, checkpt_file + f'EnGCN.pt')
         return acc["train"], acc["valid"], acc["test"]
 
     def evaluate(self, out, y, split_mask):
@@ -190,7 +191,8 @@ class EnGCN(torch.nn.Module):
             x_train, y_emb_train, pesudo_labels_train
         )
         train_loader = torch.utils.data.DataLoader(
-            train_set, batch_size=self.batch_size)
+            train_set, batch_size=self.batch_size, num_workers=8, pin_memory=True
+        )
         best_valid_acc = 0.0
         use_label_mlp = self.use_label_mlp
         if hop == 0:

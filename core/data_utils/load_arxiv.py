@@ -5,8 +5,9 @@ import torch_geometric.transforms as T
 
 
 def get_raw_text_arxiv():
-    dataset = PygNodePropPredDataset(
-        'ogbn-arxiv', transform=T.ToSparseTensor())
+    # dataset = PygNodePropPredDataset(
+    #     'ogbn-arxiv', transform=T.ToSparseTensor())
+    dataset = PygNodePropPredDataset('ogbn-arxiv')
     data = dataset[0]
     idx_splits = dataset.get_idx_split()
 
@@ -19,8 +20,7 @@ def get_raw_text_arxiv():
     data.train_mask = train_mask
     data.val_mask = val_mask
     data.test_mask = test_mask
-    data.edge_index = data.adj_t.to_symmetric()
-    data.y = data.y.squeeze()
+    # data.edge_index = data.adj_t.to_symmetric()
 
     nodeidx2paperid = pd.read_csv(
         'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')

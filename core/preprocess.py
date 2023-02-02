@@ -22,8 +22,6 @@ def _preprocess(input_text, tokenizer):
 
 def preprocessing(dataset, use_text=True):
 
-    print("[!] Preprocessing")
-    start = time.time()
     if dataset == 'cora':
         from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
     elif dataset == 'pubmed':
@@ -39,6 +37,8 @@ def preprocessing(dataset, use_text=True):
     if not use_text:
         return data
 
+    print("[!] Preprocessing")
+    start = time.time()
     token_id = []
     attention_masks = []
     tokenizer = BertTokenizer.from_pretrained(

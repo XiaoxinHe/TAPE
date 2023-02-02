@@ -4,6 +4,7 @@ import random
 import os
 import torch
 from torch.utils.data import TensorDataset, DataLoader, SequentialSampler
+from torch_geometric.transforms import ToSparseTensor, ToUndirected, Compose
 from core.preprocess import preprocessing
 from core.log import config_logger
 from core.model import BertClassifier, BertClassifierNodePred, BertClassifierV2, Z
@@ -27,6 +28,9 @@ def set_seed(seed):
 def run(cfg, train_gnn, test_gnn, train_lm):
     writer, logger = config_logger(cfg)
     data, token_id, attention_masks = preprocessing(cfg.dataset)
+    if "ogbn" in cfg.dataset:
+        trans = Compose([ToUndirected(), ToSparseTensor()])
+        data = trans(data)
     dataset = TensorDataset(token_id, attention_masks)
     dataloader = DataLoader(
         dataset,
@@ -313,6 +317,13 @@ def run_baseline_lm(cfg, train, test):
 def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
     writer, logger = config_logger(cfg)
     data, token_id, attention_masks = preprocessing(cfg.dataset)
+
+    if "ogb" in cfg.dataset:
+        evaluator = Evaluator(name=cfg.dataset)
+        data.y = data.y.squeeze()
+    else:
+        evaluator = None
+
     dataset = TensorDataset(token_id, attention_masks)
     dataloader = DataLoader(
         dataset,
@@ -320,10 +331,6 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
         sampler=SequentialSampler(dataset),
         batch_size=BATCH_SIZE
     )
-    if "ogbn" in cfg.dataset:
-        evaluator = Evaluator(name=cfg.dataset)
-    else:
-        evaluator = None
 
     split_masks = {}
     split_masks['train'] = data.train_mask
