@@ -61,6 +61,7 @@ def pretrain_lm(model, loader, data, optimizer, device):
     criterion = torch.nn.CrossEntropyLoss()
     model.train()
     total_loss = 0
+    data = data.to(device)
     for batch_idx, batch in enumerate(loader):
         optimizer.zero_grad()
         batch = tuple(t.to(device) for t in batch)
@@ -103,5 +104,5 @@ def train_lm(lm, loader, z, optimizer, device):
 
 if __name__ == '__main__':
     cfg.merge_from_file('train/configs/cora.yaml')
-    cfg = update_cfg(cfg)    
+    cfg = update_cfg(cfg)
     run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm, test_lm)
