@@ -129,7 +129,9 @@ class EnGCN(torch.nn.Module):
 
             del val, pred, SLE_mask, SLE_pred
             gc.collect()
-            y_emb, x = self.propagate(y_emb), self.propagate(x)
+            # y_emb, x = self.propagate(y_emb), self.propagate(x)
+            y_emb = self.propagate(y_emb)
+            x = self.propagate(x)
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)
@@ -198,9 +200,13 @@ class EnGCN(torch.nn.Module):
         if hop == 0:
             use_label_mlp = False  # warm up
         for epoch in range(self.epochs):
+            start = time.time()
+            # _loss, _train_acc = self.model.train_net(
+            #     x_train, y_emb_train, pesudo_labels_train, loss_op, device, use_label_mlp)
             _loss, _train_acc = self.model.train_net(
                 train_loader, loss_op, device, use_label_mlp
             )
+            end = time.time()
             if (epoch + 1) % self.interval == 0:
                 use_label_mlp = False if hop == 0 else self.use_label_mlp
                 out = self.model.inference(x, y_emb, device, use_label_mlp)
@@ -210,7 +216,8 @@ class EnGCN(torch.nn.Module):
                     f"Epoch: {epoch:02d}, "
                     f"Train acc: {acc['train']*100:.4f}, "
                     f"Valid acc: {acc['valid']*100:.4f}, "
-                    f"Test acc: {acc['test']*100:.4f}"
+                    f"Test acc: {acc['test']*100:.4f}, "
+                    f"Time: {(end-start):.4f}"
                 )
                 if acc["valid"] > best_valid_acc:
                     best_valid_acc = acc["valid"]

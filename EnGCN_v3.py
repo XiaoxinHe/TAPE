@@ -1,3 +1,5 @@
+from trainer_lm import trainer
+
 import gc
 import json
 import os
@@ -9,7 +11,7 @@ import torch
 
 from options.base_options import BaseOptions
 # from trainer import trainer
-from trainer_lm import trainer
+
 from utils import print_args
 
 

@@ -9,9 +9,40 @@ from core.preprocess import preprocessing
 from core.log import config_logger
 from core.model import BertClassifier, BertClassifierNodePred, BertClassifierV2, Z
 from core.gnn import GNN
+from core.sage import SAGE
 from ogb.nodeproppred import Evaluator
 
 BATCH_SIZE = 32
+
+
+def load_data(dataset_name, use_text):
+    if use_text:
+        data, token_id, attention_masks = preprocessing(dataset_name, use_text)
+    else:
+        data = preprocessing(dataset_name, use_text)
+    split_masks = {}
+    split_masks['train'] = data.train_mask
+    split_masks['valid'] = data.val_mask
+    split_masks['test'] = data.test_mask
+
+    if "ogbn" in dataset_name:
+        trans = Compose([ToUndirected(), ToSparseTensor()])
+        data = trans(data)
+        x = data.x
+        y = data.y = data.y.squeeze()
+        evaluator = Evaluator(name=dataset_name)
+    else:
+        trans = ToSparseTensor()
+        data = trans(data)
+        x = data.x
+        y = data.y
+        evaluator = None
+    processed_dir = 'dataset/'+dataset_name+'/processed'
+    data.edge_index = data.adj_t
+    if use_text:
+        return data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks
+    else:
+        return data, x, y, split_masks, evaluator, processed_dir
 
 
 def set_seed(seed):
@@ -140,7 +171,8 @@ def run(cfg, train_gnn, test_gnn, train_lm):
 
 def run_baseline(cfg, train, test):
     writer, logger = config_logger(cfg)
-    data = preprocessing(cfg.dataset, use_text=False)
+    data, x, y, split_masks, evaluator, processed_dir = load_data(
+        cfg.dataset, use_text=False)
 
     train_losses = []
     train_perfs = []
@@ -157,8 +189,10 @@ def run_baseline(cfg, train, test):
         start_outer = time.time()
         per_epoch_time = []
         best_val_acc = best_test_acc = float('-inf')
-        gnn = GNN(nhid=data.x.shape[1], nout=nout, gnn_type=cfg.model.gnn_type,
-                  nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
+        # gnn = GNN(nhid=data.x.shape[1], nout=nout, gnn_type=cfg.model.gnn_type,
+        #           nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
+        gnn = SAGE(in_channels=data.x.shape[1], hidden_channels=cfg.model.nhid, out_channels=nout,
+                   num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
         optimizer = torch.optim.Adam(gnn.parameters(), lr=cfg.train.lr_gnn)
 
         data = data.to(cfg.device)
@@ -166,7 +200,8 @@ def run_baseline(cfg, train, test):
         for epoch in range(1, cfg.train.epochs+1):
             start = time.time()
             loss = train(gnn, data, optimizer)
-            train_acc, val_acc, test_acc = test(gnn, data)
+            train_acc, val_acc, test_acc = test(
+                gnn, data, split_masks, evaluator)
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_test_acc = test_acc
@@ -316,13 +351,9 @@ def run_baseline_lm(cfg, train, test):
 
 def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
     writer, logger = config_logger(cfg)
-    data, token_id, attention_masks = preprocessing(cfg.dataset)
 
-    if "ogb" in cfg.dataset:
-        evaluator = Evaluator(name=cfg.dataset)
-        data.y = data.y.squeeze()
-    else:
-        evaluator = None
+    data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks = load_data(
+        cfg.dataset, use_text=False)
 
     dataset = TensorDataset(token_id, attention_masks)
     dataloader = DataLoader(
@@ -356,18 +387,21 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
 
         if pretrain_lm is not None:
             print("[!] Pretraining LM")
+            start = time.time()
             loss = pretrain_lm(lm, dataloader, data, optimizer_lm, cfg.device)
             train_acc, val_acc, test_acc = test_lm(
                 lm, dataloader, data, split_masks, evaluator, cfg.device)
             print(f'Loss: {loss:.4f}, '
-                  f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}\n')
+                  f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
 
         lm_z = lm.generate_node_features(dataloader, cfg.device).to(cfg.device)
         model_z = Z(z=lm_z.detach().clone()).to(cfg.device)
         optimizer_z = torch.optim.Adam(model_z.parameters(), lr=cfg.train.lr_z)
 
-        gnn = GNN(nhid=cfg.model.nhid, nout=NOUT, gnn_type=cfg.model.gnn_type,
-                  nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
+        # gnn = GNN(nhid=cfg.model.nhid, nout=NOUT, gnn_type=cfg.model.gnn_type,
+        #           nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
+        gnn = SAGE(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
+                   num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
         optimizer_gnn = torch.optim.Adam(gnn.parameters(), lr=cfg.train.lr_gnn)
 
         start_outer = time.time()
@@ -376,7 +410,8 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
         best_val = best_test = float('-inf')
 
         for stage in range(1, cfg.train.stages+1):
-            start = time.time()
+
+            start_stage = time.time()
             data = data.to(cfg.device)
             # best_val_epoch = best_test_epoch = float('-inf')
             if stage > 1:
@@ -384,24 +419,27 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                     dataloader, cfg.device).to(cfg.device)
 
             for epoch in range(1, cfg.train.epochs+1):
+                start = time.time()
                 new_best_str = ''
                 loss, loss_gnn, loss_z = train_gnn(
-                    gnn, model_z, data, lm_z, optimizer_gnn, optimizer_z)
+                    gnn, model_z, data, lm_z, optimizer_gnn, optimizer_z, cfg.train.alpha)
                 train_acc, val_acc, test_acc = test_gnn(
                     gnn, model_z, data, split_masks, evaluator)
                 if val_acc > best_val:
                     best_val = val_acc
                     best_test = test_acc
                     new_best_str = ' (new best test)'
+                end = time.time()
                 print(
                     f'Stage: {stage:02d}, Epoch: {epoch:02d}, '
                     f'Loss: {loss:.4f}, loss(GNN): {loss_gnn:.4f}, loss(Z): {loss_z:.8f}, '
                     f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, '
+                    f'Time: {(end-start):.4f}, '
                     f'Best Test Acc: {best_test:.4f}{new_best_str}')
 
             z = model_z().detach()
             lm_loss = train_lm(lm, dataloader, z, optimizer_lm, cfg.device)
-            time_cur_epoch = time.time() - start
+            time_cur_epoch = time.time() - start_stage
             per_epoch_time.append(time_cur_epoch)
 
             # print(f'Stage: {stage:02d}, Loss(LM): {lm_loss:.4f}, '

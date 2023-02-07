@@ -24,9 +24,9 @@ def set_cfg(cfg):
     cfg.train.lr_lm = 1e-5
     # Learning rate for gnn model
     cfg.train.lr_gnn = 1e-3
-    
+
     cfg.train.lr_z = 1e-4
-    
+
     # Learning rate patience
     cfg.train.lr_patience = 20
 
@@ -40,14 +40,16 @@ def set_cfg(cfg):
     # runs
     cfg.train.runs = 4
 
+    cfg.train.alpha = 1
+
     cfg.model = CN()
     # gnn type
     cfg.model.gnn_type = 'GCNConv'
-    
+
     cfg.model.gnn_nlayer = 4
     # enable residual
     cfg.model.res = True
-    
+
     cfg.model.nhid = 128
 
     return cfg

@@ -74,8 +74,11 @@ def parse_cora():
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_raw_text_cora():
+def get_raw_text_cora(use_text=False):
     data, data_citeid = get_cora_casestudy()
+    if not use_text:
+        return data, None
+
     with open('dataset/Cora-Orig/mccallum/cora/papers')as f:
         lines = f.readlines()
     pid_filename = {}

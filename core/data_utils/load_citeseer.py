@@ -75,8 +75,11 @@ def parse_citeseer():
     return data_X, data_Y, data_citeid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_raw_text_citeseer():
+def get_raw_text_citeseer(use_text=False):
     data, data_citeid = get_citeseer_casestudy()
+    if not use_text:
+        return data, None
+
     with open('dataset/CiteSeer-Orig/citeseer_texts.txt') as f:
         lines = f.read().splitlines()
     paper_ids = [lines[i] for i in range(len(lines)) if i % 3 == 0]

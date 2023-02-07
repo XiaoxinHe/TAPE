@@ -1,21 +1,19 @@
+from train.v3 import pretrain_lm, test_lm
 from core.preprocess import preprocessing
 import torch
 import time
 
 from torch_geometric.transforms import ToSparseTensor, ToUndirected, Compose
 from torch.utils.data import TensorDataset, DataLoader, SequentialSampler
-
 from ogb.nodeproppred import Evaluator
-
 from core.model_utils.EnGCN_LM import EnGCN
 from core.model import BertClassifierV2, Z
-from train.v3 import pretrain_lm, test_lm
 
 
 BATCH_SIZE = 32
 
 
-def load_data(dataset_name, to_sparse=True):
+def load_data(dataset_name):
     data, token_id, attention_masks = preprocessing(dataset_name)
     split_masks = {}
     split_masks['train'] = data.train_mask
@@ -83,24 +81,25 @@ class trainer(object):
             sampler=SequentialSampler(dataset),
             batch_size=BATCH_SIZE
         )
-        
+
         print("[!] Pretraining LM")
         start = time.time()
-        loss = pretrain_lm(self.lm, self.dataloader,self.data, self.optimizer_lm, self.device)
+        loss = pretrain_lm(self.lm, self.dataloader,
+                           self.data, self.optimizer_lm, self.device)
         train_acc, val_acc, test_acc = test_lm(
             self.lm, self.dataloader, self.data, self.split_masks, self.evaluator, self.device)
         print(f'Loss: {loss:.4f}, '
               f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
 
-        lm_z = self.lm.generate_node_features(self.dataloader, self.device).detach().clone()
-        model_z = Z(z=lm_z).to(self.device)
-
+        self.lm_z = self.lm.generate_node_features(
+            self.dataloader, self.device)
         self.model = EnGCN(
             args,
             self.data,
             self.evaluator,
-            model_z
+            self.lm_z.clone()
         )
+
         self.model.to(self.device)
         self.optimizer_gnn = torch.optim.Adam(
             self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay
@@ -119,12 +118,12 @@ class trainer(object):
             input_dict = {
                 "split_masks": self.split_masks,
                 "data": self.data,
-                "x": self.x,
+                "x": self.lm_z.clone(),
                 "y": self.y,
                 "optimizer": self.optimizer_gnn,
                 "loss_op": self.loss_op,
                 "device": self.device,
-                "lm_z": self.lm.generate_node_features(self.dataloader, self.device)
+                "lm_z": self.lm_z.clone()
             }
         else:
             Exception(

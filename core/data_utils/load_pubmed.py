@@ -136,8 +136,11 @@ def parse_pubmed():
     return data_A, data_X, data_Y, data_pubid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_raw_text_pubmed():
+def get_raw_text_pubmed(use_text=False):
     data, data_pubid = get_pubmed_casestudy()
+    if not use_text:
+        return data, None
+
     f = open('dataset/Pubmed-Diabetes/pubmed.json')
     pubmed = json.load(f)
     df_pubmed = pd.DataFrame.from_dict(pubmed)

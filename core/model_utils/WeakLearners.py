@@ -50,7 +50,9 @@ class MLP_SLE(torch.nn.Module):
                 f"./.cache/{self.type_model}_{self.dataset}_label_mlp.pt")
         )
 
+    # def train_net(self, train_loader, loss_op, device, use_label_mlp):
     def train_net(self, train_loader, loss_op, device, use_label_mlp):
+
         self.train()
         total_correct, total_loss = 0, 0.0
         y_true, y_preds = [], []
@@ -72,6 +74,25 @@ class MLP_SLE(torch.nn.Module):
             self.optimizer.step()
             y_preds.append(out.argmax(dim=-1).detach().cpu())
             y_true.append(y.detach().cpu())
+
+        # x, y_emb, y = x_train, y_emb_train, pesudo_labels_train
+        # x = x.to(device)
+        # y = y.to(device)
+        # y_emb = y_emb.to(device)
+        # self.optimizer.zero_grad()
+        # out = self(x, y_emb, use_label_mlp)
+        # if isinstance(loss_op, torch.nn.NLLLoss):
+        #     out = F.log_softmax(out, dim=-1)
+        # elif isinstance(loss_op, torch.nn.BCEWithLogitsLoss):
+        #     y = y.float()
+        # loss = loss_op(out, y)
+        # # loss = loss * sample_weights  # weighted loss
+        # loss = loss.mean()
+        # total_loss += float(loss.item())
+        # loss.backward()
+        # self.optimizer.step()
+        # y_preds.append(out.argmax(dim=-1).detach().cpu())
+        # y_true.append(y.detach().cpu())
 
         y_true = torch.cat(y_true, 0)
         y_preds = torch.cat(y_preds, 0)

@@ -33,7 +33,7 @@ def preprocessing(dataset, use_text=True):
     elif dataset == 'ogbn-products':
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
-    data, text = get_raw_text()
+    data, text = get_raw_text(use_text)
     if not use_text:
         return data
 

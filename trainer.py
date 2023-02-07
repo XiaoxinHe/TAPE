@@ -7,7 +7,7 @@ from torch_geometric.transforms import ToSparseTensor, ToUndirected
 from core.model_utils.EnGCN import EnGCN
 
 
-def load_data(dataset_name, to_sparse=True):
+def load_data(dataset_name):
     data = preprocessing(dataset_name, use_text=False)
     split_masks = {}
     split_masks['train'] = data.train_mask
@@ -59,7 +59,7 @@ class trainer(object):
             self.split_masks,
             self.evaluator,
             self.processed_dir,
-        ) = load_data(args.dataset, args.tosparse)
+        ) = load_data(args.dataset)
 
         #! load emb from LM
         if args.LM_emb_path != None:

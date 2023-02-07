@@ -29,7 +29,7 @@ def evaluate(out, y, split_mask, evaluator):
     return acc
 
 
-def train_gnn(model, model_z, data, lm_z, optimizer, optimizer_z):
+def train_gnn(model, model_z, data, lm_z, optimizer, optimizer_z, alpha):
     criterion = torch.nn.CrossEntropyLoss()
     cos_sim = torch.nn.CosineSimilarity()
     model.train()
@@ -39,7 +39,7 @@ def train_gnn(model, model_z, data, lm_z, optimizer, optimizer_z):
     z = model_z()
     out = model(z, data.edge_index)[data.train_mask]
     loss0 = criterion(out, data.y[data.train_mask])
-    loss1 = (1 - cos_sim(z, lm_z).mean())
+    loss1 = alpha * (1 - cos_sim(z, lm_z).mean())
     loss = loss0 + loss1
     loss.backward()
     optimizer.step()

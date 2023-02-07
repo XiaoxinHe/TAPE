@@ -3,10 +3,12 @@ import os
 import torch
 import torch.nn.functional as F
 from core.model_utils.WeakLearners_LM import MLP_SLE
+from core.model import Z
+import time
 
 
 class EnGCN(torch.nn.Module):
-    def __init__(self, args, data, evaluator, model_z):
+    def __init__(self, args, data, evaluator, init_z):
         super(EnGCN, self).__init__()
         # first try multiple weak learners
         self.model = MLP_SLE(args)
@@ -31,7 +33,7 @@ class EnGCN(torch.nn.Module):
         self.interval = args.eval_steps
         self.exp_name = args.exp_name
         # new
-        self.model_z = model_z
+        self.model_z = Z(init_z)
 
         deg = data.adj_t.sum(dim=1).to(torch.float)
         deg_inv_sqrt = deg.pow(-0.5)
@@ -66,6 +68,7 @@ class EnGCN(torch.nn.Module):
             input_dict["loss_op"],
             input_dict["lm_z"]
         )
+
         del input_dict
         gc.collect()
         self.to(device)
@@ -86,11 +89,13 @@ class EnGCN(torch.nn.Module):
                 pseudo_split_masks["train"].sum() / len(y)
             )
         )
-        
-        
-        # x = self.model_z()
+
         for i in range(self.num_layers):
             # NOTE: here the num_layers should be the stages in original SAGN
+            with torch.no_grad():
+                self.model_z.Z = torch.nn.Parameter(x.clone())
+                self.optimizer_z = torch.optim.Adam(
+                    self.model_z.parameters(), lr=1e-4)
             print(f"\n------ training weak learner with hop {i} ------")
             self.train_weak_learner(
                 i,
@@ -101,19 +106,22 @@ class EnGCN(torch.nn.Module):
                 pseudo_split_masks,
                 device,
                 loss_op,
-                # new
                 lm_z
             )
             self.model.load_state_dict(
                 torch.load(
                     f"./.cache/{self.exp_name}_{self.dataset}_MLP_SLE_TAG.pt")
             )
-
+            self.model_z.load_state_dict(
+                torch.load(
+                    f"./.cache/{self.exp_name}_{self.dataset}_Z_TAG.pt")
+            )
             # make prediction
             use_label_mlp = False if i == 0 else self.use_label_mlp
-            
-            x = self.model_z()
-            out = self.model.inference(x, y_emb, device, use_label_mlp)
+
+            self.model_z.eval()
+            z = self.model_z()
+            out = self.model.inference(z, y_emb, device, use_label_mlp)
 
             # self training: add hard labels
             val, pred = torch.max(F.softmax(out, dim=1), dim=1)
@@ -134,13 +142,11 @@ class EnGCN(torch.nn.Module):
 
             del val, pred, SLE_mask, SLE_pred
             gc.collect()
-            y_emb = self.propagate(y_emb.to(device))
-            x = self.propagate(x.to(device))
-            # y_emb = self.propagate(y_emb)
-            # x = self.propagate(x)
-            with torch.no_grad():
-                self.model_z.Z = torch.nn.Parameter(x.clone())
-            
+            # y_emb = self.propagate(y_emb.to(device))
+            # x = self.propagate(x.to(device))
+            y_emb = self.propagate(y_emb)
+            x = self.propagate(x)
+
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)
@@ -192,23 +198,19 @@ class EnGCN(torch.nn.Module):
         return out, acc
 
     def train_weak_learner(self, hop, y_emb, pseudo_labels, origin_labels, split_mask, device, loss_op, lm_z):
-        # x = self.model_z()
-        # x_train = x[split_mask["train"]]
         pesudo_labels_train = pseudo_labels[split_mask["train"]]
         y_emb_train = y_emb[split_mask["train"]]
         lm_z_train = lm_z[split_mask["train"]]
 
-        train_set = torch.utils.data.TensorDataset(y_emb_train, pesudo_labels_train, lm_z_train)
-        train_loader = torch.utils.data.DataLoader(train_set, batch_size=self.batch_size)
-
-        optimizer_z = torch.optim.Adam(self.model_z.parameters(), lr=1e-4)
         best_valid_acc = 0.0
         use_label_mlp = self.use_label_mlp
         if hop == 0:
             use_label_mlp = False  # warm up
         for epoch in range(self.epochs):
+            start = time.time()
             loss, loss0, loss1, _train_acc = self.model.train_net(
-                train_loader, loss_op, device, use_label_mlp, self.model_z, optimizer_z, split_mask, self.batch_size)
+                y_emb_train, pesudo_labels_train, lm_z_train, loss_op, device, use_label_mlp, self.model_z, self.optimizer_z, split_mask, self.batch_size)
+            end = time.time()
             if (epoch + 1) % self.interval == 0:
                 use_label_mlp = False if hop == 0 else self.use_label_mlp
                 x = self.model_z()
@@ -222,7 +224,8 @@ class EnGCN(torch.nn.Module):
                     f"Loss(Z): {loss1:.8f}, "
                     f"Train acc: {acc['train']*100:.4f}, "
                     f"Valid acc: {acc['valid']*100:.4f}, "
-                    f"Test acc: {acc['test']*100:.4f}"
+                    f"Test acc: {acc['test']*100: .4f}, "
+                    f"Time: {(end-start):.4f}"
                 )
                 if acc["valid"] > best_valid_acc:
                     best_valid_acc = acc["valid"]
@@ -231,4 +234,8 @@ class EnGCN(torch.nn.Module):
                     torch.save(
                         self.model.state_dict(),
                         f"./.cache/{self.exp_name}_{self.dataset}_MLP_SLE_TAG.pt",
+                    )
+                    torch.save(
+                        self.model_z.state_dict(),
+                        f"./.cache/{self.exp_name}_{self.dataset}_Z_TAG.pt",
                     )

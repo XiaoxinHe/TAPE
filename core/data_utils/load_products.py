@@ -4,27 +4,10 @@ import gdown
 from ogb.utils.url import extract_zip
 import pandas as pd
 import torch_geometric.transforms as T
+import torch
 
 
-def get_raw_text_products():
-
-    dataset = PygNodePropPredDataset(
-        'ogbn-products', transform=T.ToSparseTensor())
-    labels = dataset[0].y
-
-    
-    raw_text_url = 'https://drive.google.com/u/0/uc?id=1gsabsx8KR2N9jJz16jTcA0QASXsNuKnN&export=download'
-    data_root = '/home/xiaoxin/TAG/dataset/ogbn_products'
-
-    opath = os.path.join(raw_text_url, data_root)
-    print(os.path.join(opath, "Amazon-3M.raw"))
-    output = os.path.join(opath, 'Amazon-3M.raw.zip')
-    if not os.path.exists(os.path.join(opath, "Amazon-3M.raw.zip")):
-        url = raw_text_url
-        gdown.download(url=url, output=output, quiet=False, fuzzy=False)
-    if not os.path.exists(os.path.join(opath, "Amazon-3M.raw")):
-        extract_zip(output, opath)
-    raw_text_path = os.path.join(opath, "Amazon-3M.raw")
+def get_raw_text_products(use_text=False):
 
     def read_mappings(data_root):
         category_path_csv = f"{data_root}/mapping/labelidx2productcategory.csv.gz"
@@ -99,7 +82,38 @@ def get_raw_text_products():
 
         return file
 
+    dataset = PygNodePropPredDataset('ogbn-products')
+    data = dataset[0]
+    labels = dataset[0].y
+    idx_splits = dataset.get_idx_split()
+
+    train_mask = torch.zeros(data.x.size(0)).bool()
+    val_mask = torch.zeros(data.x.size(0)).bool()
+    test_mask = torch.zeros(data.x.size(0)).bool()
+    train_mask[idx_splits['train']] = True
+    val_mask[idx_splits['valid']] = True
+    test_mask[idx_splits['test']] = True
+    data.train_mask = train_mask
+    data.val_mask = val_mask
+    data.test_mask = test_mask
+
+    if not use_text:
+        return data, None
+
     print('Loading raw text')
+    raw_text_url = 'https://drive.google.com/u/0/uc?id=1gsabsx8KR2N9jJz16jTcA0QASXsNuKnN&export=download'
+    data_root = '/home/xiaoxin/TAG/dataset/ogbn_products'
+
+    opath = os.path.join(raw_text_url, data_root)
+    print(os.path.join(opath, "Amazon-3M.raw"))
+    output = os.path.join(opath, 'Amazon-3M.raw.zip')
+    if not os.path.exists(os.path.join(opath, "Amazon-3M.raw.zip")):
+        url = raw_text_url
+        gdown.download(url=url, output=output, quiet=False, fuzzy=False)
+    if not os.path.exists(os.path.join(opath, "Amazon-3M.raw")):
+        extract_zip(output, opath)
+    raw_text_path = os.path.join(opath, "Amazon-3M.raw")
+
     meta_data = read_meta_product(raw_text_path)  # 二维表
     categories, products_ids = read_mappings(data_root)
     node_data = get_mapping_product(
@@ -117,5 +131,4 @@ def get_raw_text_products():
     node_data['text'] = node_data.apply(lambda x: ' '.join(
         str(x['text']).split(' ')[:cut_off]), axis=1)
     node_data = node_data[['ID', 'text']]
-
-    return dataset[0], node_data['text']
+    return data, node_data['text']
