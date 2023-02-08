@@ -66,7 +66,7 @@ def pretrain_lm(model, loader, data, optimizer, device):
         optimizer.zero_grad()
         batch = tuple(t.to(device) for t in batch)
         batch_train_mask = data.train_mask[BATCH_SIZE *
-                                           batch_idx: BATCH_SIZE*(batch_idx+1)]
+                                        batch_idx: BATCH_SIZE*(batch_idx+1)]
         batch_y = data.y[BATCH_SIZE*batch_idx: BATCH_SIZE * (batch_idx+1)]
         out = model(batch, readout=True)
         loss = criterion(out[batch_train_mask], batch_y[batch_train_mask])
@@ -91,6 +91,7 @@ def test_lm(model, loader, data, split_mask, evaluator, device):
 
 def train_lm(lm, loader, z, optimizer, device):
     cos_sim = torch.nn.CosineSimilarity()
+    total_loss = 0
     for batch_idx, batch in enumerate(loader):
         optimizer.zero_grad()
         batch = tuple(t.to(device) for t in batch)
@@ -99,7 +100,8 @@ def train_lm(lm, loader, z, optimizer, device):
         loss = (1 - cos_sim(emb_lm, z_).mean())
         loss.backward()
         optimizer.step()
-    return loss
+        total_loss += loss.item()
+    return total_loss/len(loader)
 
 
 if __name__ == '__main__':

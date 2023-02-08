@@ -42,6 +42,8 @@ def set_cfg(cfg):
 
     cfg.train.alpha = 1
 
+    cfg.train.epochs_ft = 5
+
     cfg.model = CN()
     # gnn type
     cfg.model.gnn_type = 'GCNConv'
