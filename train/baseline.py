@@ -2,7 +2,7 @@ import torch
 from core.config import cfg, update_cfg
 from core.train_helper import run_baseline as run
 from ogb.nodeproppred import Evaluator
-
+from train.v3 import pretrain_lm, train_lm, test_lm
 
 def evaluate(out, y, split_mask, evaluator):
     acc = {}
@@ -50,4 +50,5 @@ def test_gnn(model, data, split_mask, evaluator):
 if __name__ == '__main__':
     cfg.merge_from_file('train/configs/cora.yaml')
     cfg = update_cfg(cfg)
-    run(cfg, train_gnn, test_gnn)
+    
+    run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm, test_lm)

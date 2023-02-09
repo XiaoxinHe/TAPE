@@ -9,7 +9,7 @@ from core.preprocess import preprocessing
 from core.log import config_logger
 from core.model import BertClassifier, Z
 from core.gnn import GNN
-from core.sage import SAGE
+#from core.sage import SAGE
 from ogb.nodeproppred import Evaluator
 
 BATCH_SIZE = 32
@@ -20,6 +20,9 @@ def load_data(dataset_name, use_text):
         data, token_id, attention_masks = preprocessing(dataset_name, use_text)
     else:
         data = preprocessing(dataset_name, use_text)
+        token_id = None
+        attention_masks = None
+
     split_masks = {}
     split_masks['train'] = data.train_mask
     split_masks['valid'] = data.val_mask
@@ -39,10 +42,9 @@ def load_data(dataset_name, use_text):
         evaluator = None
     processed_dir = 'dataset/'+dataset_name+'/processed'
     data.edge_index = data.adj_t
-    if use_text:
-        return data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks
-    else:
-        return data, x, y, split_masks, evaluator, processed_dir
+    
+    return data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks
+    
 
 
 def set_seed(seed):
@@ -56,10 +58,40 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def run_baseline(cfg, train, test):
+def run_baseline(cfg, train, test, train_lm, pretrain_lm=None, test_lm=None):
     writer, logger = config_logger(cfg)
-    data, x, y, split_masks, evaluator, processed_dir = load_data(
-        cfg.dataset, use_text=False)
+    
+    data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks = load_data(cfg.dataset, use_text=cfg.use_text)
+    NOUT = data.y.unique().size(0)
+
+    if cfg.use_text:    
+        dataset = TensorDataset(token_id, attention_masks)
+        dataloader = DataLoader(
+            dataset,
+            shuffle=False,
+            sampler=SequentialSampler(dataset),
+            batch_size=BATCH_SIZE
+        )
+        lm = BertClassifier(feat_shrink=cfg.model.nhid,
+                                nout=NOUT).to(cfg.device)
+        
+    
+    if cfg.use_text and pretrain_lm is not None:
+        data = data.to(cfg.device)
+        optimizer_lm = torch.optim.Adam(lm.parameters(), lr=cfg.train.lr_lm)
+        print("[!] Pretraining LM")
+        start = time.time()
+        for epoch in range(cfg.train.epochs_ft):
+            loss = pretrain_lm(lm, dataloader, data,
+                                optimizer_lm, cfg.device)
+            train_acc, val_acc, test_acc = test_lm(
+                lm, dataloader, data, split_masks, evaluator, cfg.device)
+            print(f'[LM] Epoch: {epoch}, Loss: {loss:.4f}, '
+                    f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
+
+    if cfg.use_text:
+        x = lm.generate_node_features(dataloader, cfg.device).to(cfg.device)
+        data.x = x
 
     train_losses = []
     train_perfs = []
@@ -68,7 +100,7 @@ def run_baseline(cfg, train, test):
     per_epoch_times = []
     total_times = []
 
-    nout = data.y.unique().size(0)
+    
     seeds = [41, 95, 12, 35]
     for run in range(cfg.train.runs):
         set_seed(seeds[run])
@@ -76,10 +108,10 @@ def run_baseline(cfg, train, test):
         start_outer = time.time()
         per_epoch_time = []
         best_val_acc = best_test_acc = float('-inf')
-        # gnn = GNN(nhid=data.x.shape[1], nout=nout, gnn_type=cfg.model.gnn_type,
-        #           nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
-        gnn = SAGE(in_channels=data.x.shape[1], hidden_channels=cfg.model.nhid, out_channels=nout,
-                   num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
+        gnn = GNN(nhid=data.x.shape[1], nout=NOUT, gnn_type=cfg.model.gnn_type,
+                  nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
+        # gnn = SAGE(in_channels=data.x.shape[1], hidden_channels=cfg.model.nhid, out_channels=nout,
+        #            num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
         optimizer = torch.optim.Adam(gnn.parameters(), lr=cfg.train.lr_gnn)
 
         data = data.to(cfg.device)
@@ -89,98 +121,6 @@ def run_baseline(cfg, train, test):
             loss = train(gnn, data, optimizer)
             train_acc, val_acc, test_acc = test(
                 gnn, data, split_masks, evaluator)
-            if val_acc > best_val_acc:
-                best_val_acc = val_acc
-                best_test_acc = test_acc
-            time_cur_epoch = time.time() - start
-            per_epoch_time.append(time_cur_epoch)
-
-            print(f'Epoch: {epoch:02d}, Train Loss: {loss:.4f}, '
-                  f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {best_test_acc:.4f}, '
-                  f'Time: {time.time()-start:.4f}')
-
-            writer.add_scalar(f'Run{run}/train-acc', train_acc, epoch)
-            writer.add_scalar(f'Run{run}/val-acc', val_acc, epoch)
-            writer.add_scalar(f'Run{run}/test-acc', best_test_acc, epoch)
-
-        per_epoch_time = np.mean(per_epoch_time)
-        total_time = (time.time()-start_outer)/3600
-        print("Run: ", run)
-        print("Train Loss: {:.4f}".format(loss))
-        print("Train Accuracy: {:.4f}".format(train_acc))
-        print("Vali Accuracy: {:.4f}".format(val_acc))
-        print("Test Accuracy: {:.4f}".format(best_test_acc))
-        print("AVG TIME PER EPOCH: {:.4f} s".format(per_epoch_time))
-        print("TOTAL TIME TAKEN: {:.4f} h\n".format(total_time))
-
-        train_losses.append(loss)
-        train_perfs.append(train_acc)
-        vali_perfs.append(best_val_acc)
-        test_perfs.append(best_test_acc)
-        per_epoch_times.append(per_epoch_time)
-        total_times.append(total_time)
-
-    if cfg.train.runs > 1:
-        train_loss = torch.tensor(train_losses)
-        train_perf = torch.tensor(train_perfs)
-        vali_perf = torch.tensor(vali_perfs)
-        test_perf = torch.tensor(test_perfs)
-        per_epoch_time = torch.tensor(per_epoch_times)
-        total_time = torch.tensor(total_times)
-        print(f'\nFinal Train Loss: {train_loss.mean():.4f} ± {train_loss.std():.4f}'
-              f'\nFinal Train: {train_perf.mean():.4f} ± {train_perf.std():.4f}'
-              f'\nFinal Vali: {vali_perf.mean():.4f} ± {vali_perf.std():.4f}'
-              f'\nFinal Test: {test_perf.mean():.4f} ± {test_perf.std():.4f}'
-              f'\nSeconds/epoch: {per_epoch_time.mean():.4f}'
-              f'\nHours/total: {total_time.mean():.4f}')
-        logger.info("-"*50)
-        logger.info(cfg)
-        logger.info(f'\nFinal Train Loss: {train_loss.mean():.4f} ± {train_loss.std():.4f}'
-                    f'\nFinal Train: {train_perf.mean():.4f} ± {train_perf.std():.4f}'
-                    f'\nFinal Vali: {vali_perf.mean():.4f} ± {vali_perf.std():.4f}'
-                    f'\nFinal Test: {test_perf.mean():.4f} ± {test_perf.std():.4f}'
-                    f'\nSeconds/epoch: {per_epoch_time.mean():.4f}'
-                    f'\nHours/total: {total_time.mean():.4f}')
-
-
-def run_baseline_lm(cfg, train, test):
-    writer, logger = config_logger(cfg)
-    data, token_id, attention_masks = preprocessing(cfg.dataset)
-    data = data.to(cfg.device)
-    dataset = TensorDataset(token_id, attention_masks)
-    dataloader = DataLoader(
-        dataset,
-        shuffle=False,
-        sampler=SequentialSampler(dataset),
-        batch_size=BATCH_SIZE
-    )
-
-    train_losses = []
-    train_perfs = []
-    vali_perfs = []
-    test_perfs = []
-    per_epoch_times = []
-    total_times = []
-
-    NOUT = data.y.unique().size(0)
-    seeds = [41, 95, 12, 35]
-    for run in range(cfg.train.runs):
-
-        set_seed(seeds[run])
-
-        start_outer = time.time()
-        per_epoch_time = []
-        best_val_acc = best_test_acc = float('-inf')
-
-        model = BertClassifier(nout=NOUT).to(cfg.device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=cfg.train.lr_lm)
-
-        best_val_acc = best_test_acc = float('-inf')
-        for epoch in range(1, cfg.train.stages+1):
-            start = time.time()
-            loss = train(model, dataloader, data, optimizer, cfg.device)
-            train_acc, val_acc, test_acc = test(
-                model, dataloader, data, cfg.device)
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
                 best_test_acc = test_acc

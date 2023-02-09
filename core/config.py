@@ -19,6 +19,8 @@ def set_cfg(cfg):
     # Custom log file name
     cfg.logfile = None
 
+    cfg.use_text = True
+
     cfg.train = CN()
     # Learning rate for language model
     cfg.train.lr_lm = 1e-5
