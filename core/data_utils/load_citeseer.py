@@ -36,13 +36,10 @@ def get_citeseer_casestudy():
     # split data
     node_id = np.arange(data.num_nodes)
     np.random.shuffle(node_id)
-    num_nodes_train = data.train_mask.sum()  # 120
-    num_nodes_val = data.val_mask.sum()  # 150
-    num_nodes_test = data.test_mask.sum()  # 1000
-    data.train_id = np.sort(node_id[:num_nodes_train])
+    data.train_id = np.sort(node_id[:int(data.num_nodes * 0.6)])
     data.val_id = np.sort(
-        node_id[num_nodes_train: num_nodes_train+num_nodes_val])
-    data.test_id = np.sort(node_id[-num_nodes_test:])
+        node_id[int(data.num_nodes * 0.6):int(data.num_nodes * 0.8)])
+    data.test_id = np.sort(node_id[int(data.num_nodes * 0.8):])
 
     data.train_mask = torch.tensor(
         [x in data.train_id for x in range(data.num_nodes)])

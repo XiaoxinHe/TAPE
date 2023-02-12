@@ -1,6 +1,6 @@
 import torch
 from core.config import cfg, update_cfg
-from core.train_helper import run_v2 as run
+from core.train_helper import run
 
 BATCH_SIZE = 32
 

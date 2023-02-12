@@ -175,7 +175,7 @@ def run_baseline(cfg, train, test, train_lm, pretrain_lm=None, test_lm=None):
                     f'\nHours/total: {total_time.mean():.4f}')
 
 
-def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
+def run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
     writer, logger = config_logger(cfg)
 
     data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks = load_data(
@@ -220,7 +220,7 @@ def run_v2(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                 train_acc, val_acc, test_acc = test_lm(
                     lm, dataloader, data, split_masks, evaluator, cfg.device)
                 print(f'[LM] Epoch: {epoch}, Loss: {loss:.4f}, '
-                      f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}\n')
+                      f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}')
 
         lm_z = lm.generate_node_features(dataloader, cfg.device).to(cfg.device)
         model_z = Z(z=lm_z.detach().clone()).to(cfg.device)
