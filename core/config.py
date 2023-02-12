@@ -42,7 +42,10 @@ def set_cfg(cfg):
     # runs
     cfg.train.runs = 4
 
-    cfg.train.alpha = 1
+    # GNN
+    cfg.train.alpha = 0.5
+    # LM
+    cfg.train.beta = 0.5
 
     cfg.train.epochs_ft = 5
 
