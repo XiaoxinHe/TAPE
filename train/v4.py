@@ -79,6 +79,7 @@ def train_lm(lm, loader, z, data, optimizer, beta, split_mask, evaluator, device
             print(f'batch_idx: {batch_idx}, Loss: {loss.item():.4f}, Loss0: {loss0.item():.4f}, Loss1: {loss1.item():.4f}, '
                   f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}')
             if val_acc > best_val:
+                best_val = val_acc
                 torch.save(lm.state_dict(), path)
     return total_loss/len(loader), total_loss0/len(loader), total_loss1/len(loader)
 
