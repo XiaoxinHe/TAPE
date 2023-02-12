@@ -518,7 +518,6 @@ def run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                     f'\nHours/total: {total_time.mean():.4f}')
 
 
-
 def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
     writer, logger = config_logger(cfg)
 
@@ -638,13 +637,14 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
 
             start = time.time()
             for epoch in range(1):
-                lm_loss = train_lm(lm, dataloader, z, data, optimizer_lm, split_masks, evaluator, cfg.device, LM_PATH)
+                lm_loss = train_lm(lm, dataloader, z, data, optimizer_lm,
+                                   split_masks, evaluator, cfg.device, LM_PATH)
 
             lm.load_state_dict(torch.load(LM_PATH))
             train_acc, val_acc, test_acc = test_lm(
                 lm, dataloader, data, split_masks, evaluator, cfg.device)
             print(
-                f'[LM] Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}')
+                f'[LM] Loss: {lm_loss:.4f}, Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}')
 
             time_cur_epoch = time.time() - start_stage
             per_epoch_time.append(time_cur_epoch)
