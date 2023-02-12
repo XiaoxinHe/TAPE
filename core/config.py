@@ -53,7 +53,8 @@ def set_cfg(cfg):
     # gnn type
     cfg.model.gnn_type = 'GCNConv'
 
-    cfg.model.gnn_nlayer = 4
+    cfg.model.gnn_nlayer = 2
+
     # enable residual
     cfg.model.res = True
 

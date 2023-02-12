@@ -28,9 +28,9 @@ class GNN(nn.Module):
             x = norm(x)
             x = F.relu(x)
             x = F.dropout(x, self.dropout, training=self.training)
-            if self.res:
-                x = x + previous_x
-                previous_x = x
+            # if self.res:
+            #     x = x + previous_x
+            #     previous_x = x
         if readout:
             x = self.output_encoder(x)
         return x

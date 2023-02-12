@@ -457,8 +457,8 @@ def run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                 f"./.cache/{cfg.dataset}_model_z_{cfg.logfile}.pt"))
             z = model_z().detach()
 
-            for epoch in range(3):
-                start = time.time()
+            start = time.time()
+            for epoch in range(1):
                 lm_loss, lm_loss0, lm_loss1 = train_lm(
                     lm, dataloader, z, data, optimizer_lm, cfg.train.beta, split_masks, evaluator, cfg.device, LM_PATH)
 
@@ -466,7 +466,8 @@ def run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
             train_acc, val_acc, test_acc = test_lm(
                 lm, dataloader, data, split_masks, evaluator, cfg.device)
             print(
-                f'[LM] Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}')
+                f'[LM] Loss: {lm_loss: .4f}, Loss0: {lm_loss0: .4f}, Loss1: {lm_loss1: .4f}, '
+                f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, Time: {time.time()-start:.4f}')
 
             time_cur_epoch = time.time() - start_stage
             per_epoch_time.append(time_cur_epoch)
