@@ -1,6 +1,6 @@
 import torch
 from core.config import cfg, update_cfg
-from core.train_helper import run
+from core.train_helper import run_v3 as run
 
 BATCH_SIZE = 32
 
@@ -68,8 +68,8 @@ def pretrain_lm(model, loader, data, optimizer, device):
         batch_train_mask = data.train_mask[BATCH_SIZE *
                                            batch_idx: BATCH_SIZE*(batch_idx+1)]
         batch_y = data.y[BATCH_SIZE*batch_idx: BATCH_SIZE * (batch_idx+1)]
-        out = model(batch, readout=True)
-        loss = criterion(out[batch_train_mask], batch_y[batch_train_mask])
+        emb, pred = model(batch, readout=True)
+        loss = criterion(pred[batch_train_mask], batch_y[batch_train_mask])
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
@@ -82,26 +82,37 @@ def test_lm(model, loader, data, split_mask, evaluator, device):
     outs = []
     for batch in loader:
         batch = tuple(t.to(device) for t in batch)
-        out = model(batch, readout=True)
-        outs.append(out.cpu())
+        emb, pred = model(batch, readout=True)
+        outs.append(pred.cpu())
     out = torch.cat(outs, dim=0)
     acc = evaluate(out, data.y, split_mask, evaluator)
     return acc["train"], acc["valid"], acc["test"]
 
 
-def train_lm(lm, loader, z, optimizer, device):
+def train_lm(lm, loader, z, data, optimizer, split_mask, evaluator, device, path):
+    best_val = 0
     cos_sim = torch.nn.CosineSimilarity()
     total_loss = 0
+    eval_steps = 5
+
     for batch_idx, batch in enumerate(loader):
         optimizer.zero_grad()
         batch = tuple(t.to(device) for t in batch)
-        emb_lm = lm(batch)
         z_ = z[batch_idx*BATCH_SIZE:(batch_idx+1)*BATCH_SIZE]
-        loss = (1 - cos_sim(emb_lm, z_).mean())
+        emb, pred = lm(batch)
+        loss = 1 - cos_sim(emb, z_).mean()
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
+        if batch_idx % eval_steps == 0:
+            train_acc, val_acc, test_acc = test_lm(
+                lm, loader, data, split_mask, evaluator, device)
+            print(f'batch_idx: {batch_idx}, Loss: {loss.item():.4f}, '
+                  f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}')
+            if val_acc > best_val:
+                torch.save(lm.state_dict(), path)
     return total_loss/len(loader)
+
 
 
 if __name__ == '__main__':
