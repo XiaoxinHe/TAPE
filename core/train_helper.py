@@ -8,7 +8,7 @@ from torch_geometric.transforms import ToSparseTensor, ToUndirected, Compose
 from core.preprocess import preprocessing
 from core.log import config_logger
 from core.model import BertClassifier, Z
-from core.gnn import GNN
+from core.gnn import GCN
 #from core.sage import SAGE
 from ogb.nodeproppred import Evaluator
 
@@ -112,10 +112,8 @@ def run_baseline(cfg, train, test, train_lm, pretrain_lm=None, test_lm=None):
         start_outer = time.time()
         per_epoch_time = []
         best_val_acc = best_test_acc = float('-inf')
-        gnn = GNN(nhid=data.x.shape[1], nout=NOUT, gnn_type=cfg.model.gnn_type,
-                  nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
-        # gnn = SAGE(in_channels=data.x.shape[1], hidden_channels=cfg.model.nhid, out_channels=nout,
-        #            num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
+        gnn = GCN(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
+                  num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
         optimizer = torch.optim.Adam(gnn.parameters(), lr=cfg.train.lr_gnn)
 
         data = data.to(cfg.device)
@@ -235,11 +233,8 @@ def run(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
         lm_z = lm.generate_node_features(dataloader, cfg.device).to(cfg.device)
         model_z = Z(z=lm_z.detach().clone()).to(cfg.device)
 
-        gnn = GNN(nhid=cfg.model.nhid, nout=NOUT, gnn_type=cfg.model.gnn_type,
-                  nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
-        # gnn = SAGE(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
-        #            num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
-
+        gnn = GCN(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
+                  num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
         start_outer = time.time()
         per_epoch_time = []
         # best_val_stage = best_test_stage = float('-inf')
@@ -389,6 +384,7 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
         set_seed(seeds[run])
 
         lm = BertClassifier(feat_shrink=cfg.model.nhid,
+                            dropout=0.5,
                             nout=NOUT).to(cfg.device)
         optimizer_lm = torch.optim.Adam(lm.parameters(), lr=cfg.train.lr_lm)
         data = data.to(cfg.device)
@@ -414,18 +410,16 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
         lm_z = lm.generate_node_features(dataloader, cfg.device).to(cfg.device)
         model_z = Z(z=lm_z.detach().clone()).to(cfg.device)
 
-        gnn = GNN(nhid=cfg.model.nhid, nout=NOUT, gnn_type=cfg.model.gnn_type,
-                  nlayer=cfg.model.gnn_nlayer, dropout=cfg.train.dropout, res=cfg.model.res).to(cfg.device)
-        # gnn = SAGE(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
-        #            num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
+        # gnn = GCN(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
+        #           num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
 
         start_outer = time.time()
         per_epoch_time = []
-        # best_val_stage = best_test_stage = float('-inf')
         best_val = best_test = float('-inf')
 
         for stage in range(1, cfg.train.stages+1):
-
+            gnn = GCN(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
+                      num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
             optimizer_gnn = torch.optim.Adam(
                 gnn.parameters(), lr=cfg.train.lr_gnn)
             optimizer_z = torch.optim.Adam(
@@ -435,7 +429,7 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
 
             start_stage = time.time()
             data = data.to(cfg.device)
-            # best_val_epoch = best_test_epoch = float('-inf')
+
             if stage > 1:
                 lm_z = lm.generate_node_features(
                     dataloader, cfg.device).to(cfg.device)
@@ -445,6 +439,7 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                 new_best_str = ''
                 loss, loss_gnn, loss_z = train_gnn(
                     gnn, model_z, data, lm_z, optimizer_gnn, optimizer_z, cfg.train.alpha)
+                # data.x = lm_z
                 train_acc, val_acc, test_acc = test_gnn(
                     gnn, model_z, data, split_masks, evaluator)
                 if val_acc > best_val:
@@ -465,7 +460,7 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
                 print(
                     f'Stage: {stage:02d}, Epoch: {epoch:02d}, '
                     f'Loss: {loss:.4f}, loss(GNN): {loss_gnn:.4f}, loss(Z): {loss_z:.8f}, '
-                    f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, '
+                    f'Train Acc: {train_acc:.4f}, Val Acc: {val_acc:.4f}, Test Acc: {test_acc:.4f}, '
                     f'Time: {(end-start):.4f}, '
                     f'Best Test Acc: {best_test:.4f}{new_best_str}')
 
@@ -479,7 +474,6 @@ def run_v3(cfg, train_gnn, test_gnn, train_lm, pretrain_lm=None, test_lm=None):
             for epoch in range(1):
                 lm_loss = train_lm(lm, dataloader, z, data, optimizer_lm,
                                    split_masks, evaluator, cfg.device, LM_PATH)
-
             lm.load_state_dict(torch.load(LM_PATH))
             train_acc, val_acc, test_acc = test_lm(
                 lm, dataloader, data, split_masks, evaluator, cfg.device)
