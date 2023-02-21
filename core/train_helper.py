@@ -29,19 +29,14 @@ def load_data(dataset_name, use_text):
     split_masks['test'] = data.test_mask
 
     if "ogbn" in dataset_name:
-        trans = Compose([ToUndirected(), ToSparseTensor()])
-        data = trans(data)
         x = data.x
         y = data.y = data.y.squeeze()
         evaluator = Evaluator(name=dataset_name)
     else:
-        trans = ToSparseTensor()
-        data = trans(data)
         x = data.x
         y = data.y
         evaluator = None
     processed_dir = 'dataset/'+dataset_name+'/processed'
-    data.edge_index = data.adj_t
 
     return data, x, y, split_masks, evaluator, processed_dir, token_id, attention_masks
 

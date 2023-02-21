@@ -1,6 +1,7 @@
 import time
 from transformers import BertTokenizer
 import torch
+from torch_geometric.transforms import ToSparseTensor, ToUndirected, Compose
 
 
 def _preprocess(input_text, tokenizer):
@@ -34,6 +35,15 @@ def preprocessing(dataset, use_text=True):
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
     data, text = get_raw_text(use_text)
+
+    if "ogbn" in dataset:
+        trans = Compose([ToUndirected(), ToSparseTensor()])
+        data = trans(data)
+    else:
+        trans = ToSparseTensor()
+        data = trans(data)
+    data.edge_index = data.adj_t
+
     if not use_text:
         return data
 
