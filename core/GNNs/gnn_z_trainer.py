@@ -10,8 +10,9 @@ from core.utils.function.np_utils import save_memmap
 
 DATASET = 'cora'
 LOG_FREQ = 10
-checkpoint_file = ['output/GNN.pt', 'output/Z.pt']
 early_stop = 50
+
+feat_shrink = 32
 
 
 class Z(torch.nn.Module):
@@ -24,16 +25,20 @@ class Z(torch.nn.Module):
 
 
 class GNNTrainer():
-    def __init__(self, device):
+    def __init__(self, device, stage):
         self.device = device
         self.epochs = 200
+        self.stage = stage
+        pre_checkpoint_file = [
+            f"output/GNN{stage-1}.pt", f"output/Z{stage-1}.pt"]
+        cur_checkpoint_file = [f"output/GNN{stage}.pt", f"output/Z{stage}.pt"]
 
         # ! Load data
         data = preprocessing(DATASET, use_text=False)
 
         # ! Init gnn feature
-        lm_x = np.memmap('output/bert.emb', mode='r',
-                         dtype=np.float16, shape=(data.x.shape[0], 768))
+        lm_x = np.memmap(f"output/bert.emb{stage-1}", mode='r',
+                         dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
         lm_x = torch.Tensor(np.array(lm_x))
 
         self.lm_x = lm_x.to(device)
@@ -44,13 +49,18 @@ class GNNTrainer():
                          hidden_channels=128,
                          out_channels=data.y.unique().size(0),
                          num_layers=4,
-                         dropout=0.0).to(self.device)
+                         dropout=0.0
+                         ).to(self.device)
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=0.01, weight_decay=0.0)
 
-        self.model_z = Z(lm_x.detach().clone()).to(self.device)
+        self.model_z = Z(lm_x.detach().clone()).to(device)
+        if stage > 1:
+            self.model.load_state_dict(torch.load(pre_checkpoint_file[0]))
+            self.model_z.load_state_dict(torch.load(pre_checkpoint_file[1]))
+
         self.optimizer_z = torch.optim.Adam(
-            self.model_z.parameters(), lr=0.001, weight_decay=0.0)
+            self.model_z.parameters(), lr=0.01, weight_decay=0.0)
 
         trainable_params = sum(
             p.numel() for p in self.model.parameters() if p.requires_grad
@@ -58,7 +68,7 @@ class GNNTrainer():
 
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
         self.stopper = EarlyStopping(
-            patience=early_stop, path=checkpoint_file) if early_stop > 0 else None
+            patience=early_stop, path=cur_checkpoint_file) if early_stop > 0 else None
         self.loss_func_gnn = torch.nn.CrossEntropyLoss()
         self.loss_func_z = torch.nn.CosineSimilarity()
 
@@ -138,4 +148,4 @@ class GNNTrainer():
         print(res)
         z = self.model_z()
         save_memmap(z.cpu().numpy(), init_path(
-            "output/z.emb"), dtype=np.float16)
+            f"output/z.emb{self.stage}"), dtype=np.float32)

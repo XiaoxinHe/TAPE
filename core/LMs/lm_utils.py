@@ -1,5 +1,4 @@
 import numpy as np
-from core.utils.modules.conf_utils import ModelConfig
 
 
 def compute_metrics(p):
@@ -20,48 +19,12 @@ def compute_loss(logits, labels, emb, pesudo_emb, pl_weight=0.5, is_augmented=Fa
     cos_sim = th.nn.CosineSimilarity()
 
     if is_augmented:
-        def deal_nan(x): return 0 if th.isnan(x) else x
-        mle_loss = deal_nan(cross_entropy(logits, labels))
-        pl_loss = deal_nan(cos_sim(emb, pesudo_emb))
-        loss = pl_weight * pl_loss + (1 - pl_weight) * mle_loss
+        # def deal_nan(x): return 0 if th.isnan(x) else x
+        # mle_loss = deal_nan(cross_entropy(logits, labels))
+        pl_loss = (1-cos_sim(emb, pesudo_emb)).mean()
+        loss = pl_loss
+        # loss = pl_weight * pl_loss + (1 - pl_weight) * mle_loss
+        # print(mle_loss, pl_loss)
     else:
         loss = cross_entropy(logits, labels)
     return loss
-
-
-class LMConfig(ModelConfig):
-    def __init__(self, args=None):
-        # ! INITIALIZE ARGS
-        super(LMConfig, self).__init__('LMs')
-
-        # ! LM Settings
-        self.model = 'Bert'
-        self.init_ckpt = 'Prt'
-
-        self.lr = 0.00002
-        self.eq_batch_size = 36
-        self.weight_decay = 0.01
-        self.label_smoothing_factor = 0.1
-        self.dropout = 0.1
-        self.warmup_epochs = 0.2
-        self.att_dropout = 0.1
-        self.cla_dropout = 0.1
-        self.cla_bias = 'T'
-        self.grad_acc_steps = 2
-        self.load_best_model_at_end = 'T'
-
-        # ! glem Training settings
-        self.is_augmented = False
-        self.save_folder = ''
-        self.emi_file = ''
-        self.em_iter = 0
-        self.ce_reduction = 'mean'
-
-        # self.feat_shrink = '100'
-        self.feat_shrink = ''
-        self.pl_weight = 0.5  # pseudo_label_weight
-        self.pl_ratio = 0.5  # pseudo_label data ratio
-        self.eval_patience = 100000
-        self.is_inf = False
-
-        # to be called in the instances of LMConfig.
