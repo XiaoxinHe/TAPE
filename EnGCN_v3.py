@@ -1,18 +1,14 @@
 from trainer_lm import trainer
+from options.base_options import BaseOptions
+from utils import print_args
 
 import gc
 import json
 import os
 import random
 from datetime import datetime
-
 import numpy as np
 import torch
-
-from options.base_options import BaseOptions
-# from trainer import trainer
-
-from utils import print_args
 
 
 def set_seed(args):
@@ -73,6 +69,10 @@ def main(args):
         trnr.mem_speed_bench()
 
     for seed in range(resume_seed, args.N_exp):
+        if args.seed is not None:
+            seed = args.seed
+        else:
+            pass
         print(f"seed (which_run) = <{seed}>")
 
         args.random_seed = seed
@@ -99,8 +99,11 @@ def main(args):
         gc.collect()
 
         # record training data
-        print("mean and std of test acc: {:.4f} {:.4f} \n\n".format(
-            np.mean(list_test_acc) * 100, np.std(list_test_acc) * 100))
+        print(
+            "mean and std of test acc: {:.4f} {:.4f} ".format(
+                np.mean(list_test_acc) * 100, np.std(list_test_acc) * 100
+            )
+        )
 
         try:
             to_save = dict(
@@ -118,6 +121,8 @@ def main(args):
     print(
         "final mean and std of test acc: ",
         f"{np.mean(list_test_acc)*100:.4f} $\\pm$ {np.std(list_test_acc)*100:.4f}",
+        "final mean and std of val acc: ",
+        f"{np.mean(list_valid_acc) * 100:.4f} $\\pm$ {np.std(list_valid_acc) * 100:.4f}",
     )
 
 

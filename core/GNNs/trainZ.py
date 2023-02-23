@@ -1,5 +1,5 @@
 import argparse
-from core.GNNs.gnnz_trainer import GNNZTrainer
+from core.GNNs.z_trainer import ZTrainer
 
 
 if __name__ == "__main__":
@@ -8,7 +8,10 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--stage', type=int, default=0)
     args = parser.parse_args()
-
-    trainer = GNNZTrainer(args.device, args.stage)
+    
+    
+    trainer = ZTrainer(args.device, args.stage)
     trainer.train()
     trainer.eval_and_save()
+    
+    

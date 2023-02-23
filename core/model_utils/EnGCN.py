@@ -1,12 +1,10 @@
+from core.model_utils.WeakLearners import MLP_SLE
+
 import gc
 import os
 import time
-import uuid
 import torch
 import torch.nn.functional as F
-from torch_sparse import SparseTensor
-
-from .WeakLearners import MLP_SLE
 
 
 class EnGCN(torch.nn.Module):
@@ -131,7 +129,7 @@ class EnGCN(torch.nn.Module):
             gc.collect()
             # y_emb, x = self.propagate(y_emb), self.propagate(x)
             y_emb = self.propagate(y_emb)
-            x = self.propagate(x)
+            # x = self.propagate(x)
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)
@@ -186,15 +184,17 @@ class EnGCN(torch.nn.Module):
         self, hop, x, y_emb, pseudo_labels, origin_labels, split_mask, device, loss_op
     ):
         # load self.xs[hop] to train self.mlps[hop]
-        x_train = x[split_mask["train"]]
-        pesudo_labels_train = pseudo_labels[split_mask["train"]]
-        y_emb_train = y_emb[split_mask["train"]]
-        train_set = torch.utils.data.TensorDataset(
-            x_train, y_emb_train, pesudo_labels_train
-        )
-        train_loader = torch.utils.data.DataLoader(
-            train_set, batch_size=self.batch_size, num_workers=8, pin_memory=True
-        )
+        # x_train = x[split_mask["train"]]
+        # pesudo_labels_train = pseudo_labels[split_mask["train"]]
+        # y_emb_train = y_emb[split_mask["train"]]
+        # train_set = torch.utils.data.TensorDataset(
+        #     x_train, y_emb_train, pesudo_labels_train
+        # )
+        # train_loader = torch.utils.data.DataLoader(
+        #     train_set, batch_size=self.batch_size, num_workers=8, pin_memory=True
+        # )
+        dataset = [split_mask["train"].nonzero().squeeze(),
+                   x.to(device), y_emb, pseudo_labels]
         best_valid_acc = 0.0
         use_label_mlp = self.use_label_mlp
         if hop == 0:
@@ -203,8 +203,11 @@ class EnGCN(torch.nn.Module):
             start = time.time()
             # _loss, _train_acc = self.model.train_net(
             #     x_train, y_emb_train, pesudo_labels_train, loss_op, device, use_label_mlp)
+            # _loss, _train_acc = self.model.train_net(
+            #     train_loader, loss_op, device, use_label_mlp
+            # )
             _loss, _train_acc = self.model.train_net(
-                train_loader, loss_op, device, use_label_mlp
+                dataset, loss_op, device, use_label_mlp
             )
             end = time.time()
             if (epoch + 1) % self.interval == 0:

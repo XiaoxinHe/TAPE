@@ -1,5 +1,4 @@
 import math
-
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -51,12 +50,19 @@ class MLP_SLE(torch.nn.Module):
         )
 
     # def train_net(self, train_loader, loss_op, device, use_label_mlp):
-    def train_net(self, train_loader, loss_op, device, use_label_mlp):
+    def train_net(self, dataset, loss_op, device, use_label_mlp):
 
         self.train()
         total_correct, total_loss = 0, 0.0
         y_true, y_preds = [], []
-        for x, y_emb, y in train_loader:
+        train_ids, input_x, input_y_emb, input_y = dataset
+        train_loader = DataLoader(train_ids, batch_size=10000, shuffle=True)
+
+        # for x, y_emb, y in train_loader:
+        for ids in train_loader:
+            x = input_x[ids]
+            y = input_y[ids]
+            y_emb = input_y_emb[ids]
             x = x.to(device)
             y = y.to(device)
             y_emb = y_emb.to(device)
@@ -67,7 +73,6 @@ class MLP_SLE(torch.nn.Module):
             elif isinstance(loss_op, torch.nn.BCEWithLogitsLoss):
                 y = y.float()
             loss = loss_op(out, y)
-            # loss = loss * sample_weights  # weighted loss
             loss = loss.mean()
             total_loss += float(loss.item())
             loss.backward()

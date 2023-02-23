@@ -4,7 +4,6 @@ import random
 import os
 import torch
 from torch.utils.data import TensorDataset, DataLoader, SequentialSampler
-from torch_geometric.transforms import ToSparseTensor, ToUndirected, Compose
 from core.preprocess import preprocessing
 from core.log import config_logger
 from core.model import BertClassifier, Z
@@ -107,7 +106,7 @@ def run_baseline(cfg, train, test, train_lm, pretrain_lm=None, test_lm=None):
         start_outer = time.time()
         per_epoch_time = []
         best_val_acc = best_test_acc = float('-inf')
-        gnn = GCN(in_channels=cfg.model.nhid, hidden_channels=cfg.model.nhid, out_channels=NOUT,
+        gnn = GCN(in_channels=data.x.shape[1], hidden_channels=cfg.model.nhid, out_channels=NOUT,
                   num_layers=cfg.model.gnn_nlayer, dropout=cfg.train.dropout).to(cfg.device)
         optimizer = torch.optim.Adam(gnn.parameters(), lr=cfg.train.lr_gnn)
 

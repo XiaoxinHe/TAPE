@@ -1,10 +1,9 @@
+from core.model_utils.EnGCN import EnGCN
+
 from ogb.nodeproppred import Evaluator
 from core.preprocess import preprocessing
-from torch_geometric.transforms import Compose
 import numpy as np
 import torch
-from torch_geometric.transforms import ToSparseTensor, ToUndirected
-from core.model_utils.EnGCN import EnGCN
 
 
 def load_data(dataset_name):
@@ -15,14 +14,10 @@ def load_data(dataset_name):
     split_masks['test'] = data.test_mask
 
     if "ogbn" in dataset_name:
-        trans = Compose([ToUndirected(), ToSparseTensor()])
-        data = trans(data)
         x = data.x
         y = data.y = data.y.squeeze()
         evaluator = Evaluator(name=dataset_name)
     else:
-        trans = ToSparseTensor()
-        data = trans(data)
         x = data.x
         y = data.y
         evaluator = None
@@ -64,8 +59,8 @@ class trainer(object):
         #! load emb from LM
         if args.LM_emb_path != None:
             self.x = torch.from_numpy(np.array(np.memmap(
-                args.LM_emb_path, mode='r', dtype=np.float16, shape=(169343, 768)))).to(torch.float32)
-            print('load from GLEM:LM!')
+                args.LM_emb_path, mode='r', dtype=np.float32, shape=(self.data.x.shape[0], 128)))).to(torch.float32)
+            print('load from LM!')
         elif args.GIANT != None:
             self.x = torch.tensor(np.load(args.GIANT)).float()
         else:

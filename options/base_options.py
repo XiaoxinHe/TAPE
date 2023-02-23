@@ -55,7 +55,7 @@ class BaseOptions:
             ],
         )
         parser.add_argument("--exp_name", type=str, default="")
-        parser.add_argument("--N_exp", type=int, default=3)
+        parser.add_argument("--N_exp", type=int, default=1)
         parser.add_argument("--resume", action="store_true", default=False)
         parser.add_argument(
             "--cuda", type=bool, default=True, required=False, help="run in cuda mode"
@@ -100,7 +100,7 @@ class BaseOptions:
         parser.add_argument(
             "--batch_size",
             type=int,
-            default=5000,
+            default=20000,
             help="batch size depending on methods, "
                  "need to provide fair batch for different approaches",
         )
@@ -188,7 +188,7 @@ class BaseOptions:
         )
         parser.add_argument("--filter_rate", type=float, default=0.2)
 
-        parser.add_argument("--alpha", type=float, default=1.0)
+        parser.add_argument("--alpha", type=float, default=0.5)
 
         args = parser.parse_args()
         args = self.reset_dataset_dependent_parameters(args)
@@ -213,7 +213,10 @@ class BaseOptions:
                 args.num_feats = 128
         elif args.dataset == 'cora':
             args.num_classes = 8
-            args.num_feats = 1433
+            if args.LM_emb_path or args.GIANT is not None:
+                args.num_feats = 128
+            else:
+                args.num_feats = 1433
             # args.num_feats = 128
         elif args.dataset == 'citeseer':
             args.num_classes = 6
