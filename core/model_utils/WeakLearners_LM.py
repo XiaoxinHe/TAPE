@@ -1,4 +1,5 @@
 import math
+from pandas import reset_option
 
 import torch
 import torch.nn.functional as F
@@ -12,7 +13,9 @@ class MLP_SLE(torch.nn.Module):
         super(MLP_SLE, self).__init__()
         self.use_label_mlp = args.use_label_mlp
         self.z = torch.nn.Parameter(z.detach().clone())
-
+        self.lr = args.lr
+        self.weight_decay = args.weight_decay
+        self.alpha = args.alpha
         self.base_mlp = Inner_MLP(
             args.num_feats,
             args.dim_hidden,
@@ -31,12 +34,15 @@ class MLP_SLE(torch.nn.Module):
                 args.dropout,
                 normalization="batch" if args.use_batch_norm else "none",
             )
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=args.lr, weight_decay=args.weight_decay
-        )
 
         self.loss_op = torch.nn.NLLLoss()
-        self.alpha = args.alpha
+        self.cos_sim_op = torch.nn.CosineSimilarity()
+        self.reset_optimizer()
+
+    def reset_optimizer(self):
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
 
     def forward(self, x, y, use_label_mlp):
         out = self.base_mlp(x)
@@ -46,9 +52,9 @@ class MLP_SLE(torch.nn.Module):
 
     # def train_net(self, train_loader, loss_op, device, use_label_mlp):
     def train_net(self, train_set, loss_op, device, use_label_mlp):
-        cos_sim_op = torch.nn.CosineSimilarity()
         self.train()
         total_correct, total_loss = 0, 0.0
+        total_loss_gnn, total_loss_z = 0.0, 0.0
         y_true, y_preds = [], []
         train_ids, input_lm_x, input_y_emb, input_y = train_set
         train_loader = DataLoader(train_ids, batch_size=10000, shuffle=True)
@@ -57,7 +63,7 @@ class MLP_SLE(torch.nn.Module):
             lm_x = input_lm_x[ids]
             y = input_y[ids]
             y_emb = input_y_emb[ids]
-            # x = self.z.to(device)
+            x = x.to(device)
             y = y.to(device)
             y_emb = y_emb.to(device)
             self.optimizer.zero_grad()
@@ -66,10 +72,11 @@ class MLP_SLE(torch.nn.Module):
                 out = F.log_softmax(out, dim=-1)
             elif isinstance(loss_op, torch.nn.BCEWithLogitsLoss):
                 y = y.float()
-            loss_gnn = loss_op(out, y).mean()
-            loss_z = (1-cos_sim_op(x, lm_x)).mean()
-            loss = self.alpha * loss_gnn + (1-self.alpha)*loss_z
-            # print(loss.item(), loss_gnn.item(), loss_z.item())
+            loss_gnn = self.alpha * loss_op(out, y).mean()
+            loss_z = (1-self.alpha)*(1-self.cos_sim_op(x, lm_x)).mean()
+            total_loss_gnn += loss_gnn
+            total_loss_z += loss_z
+            loss = loss_gnn + loss_z
             total_loss += float(loss.item())
             loss.backward()
             self.optimizer.step()
@@ -80,7 +87,7 @@ class MLP_SLE(torch.nn.Module):
         y_preds = torch.cat(y_preds, 0)
         total_correct = y_preds.eq(y_true).sum().item()
         train_acc = float(total_correct / y_preds.size(0))
-        return float(total_loss), train_acc
+        return float(total_loss), float(total_loss_gnn), float(total_loss_z), train_acc
 
     @torch.no_grad()
     def inference(self, y_emb, device, use_label_mlp):

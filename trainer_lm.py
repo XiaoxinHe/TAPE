@@ -3,6 +3,8 @@ from core.preprocess import preprocessing
 from ogb.nodeproppred import Evaluator
 import numpy as np
 import torch
+from core.utils.function.os_utils import init_path
+from core.utils.function.np_utils import save_memmap
 
 
 def load_data(dataset_name):
@@ -36,7 +38,7 @@ class trainer(object):
         self.type_model = args.type_model
         self.epochs = args.epochs
         self.eval_steps = args.eval_steps
-
+        self.stage = args.stage
         # used to indicate multi-label classification.
         # If it is, using BCE and micro-f1 performance metric
         self.multi_label = args.multi_label
@@ -86,7 +88,12 @@ class trainer(object):
         # assert isinstance(self.model, (SAdaGCN, AdaGCN, GBGCN))
         input_dict = self.get_input_dict(0)
         acc = self.model.train_and_test(input_dict)
+
         return acc
+
+    def save(self):
+        save_memmap(self.model.model.z.detach().numpy(), init_path(
+            f"output/{self.dataset}/z.emb{self.stage}"), dtype=np.float32)
 
     def get_input_dict(self, epoch):
         if self.type_model in [

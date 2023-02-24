@@ -131,10 +131,11 @@ class EnGCN(torch.nn.Module):
             # y_emb, x = self.propagate(y_emb), self.propagate(x)
             y_emb = self.propagate(y_emb.cpu())
 
-            # x = self.model.z
-            # x = self.propagate(x.cpu())
-            # with torch.no_grad():
-            #     self.model.z = torch.nn.Parameter(x.detach().clone().to(device))
+            x = self.model.z
+            x = self.propagate(x.cpu())
+            with torch.no_grad():
+                self.model.z = torch.nn.Parameter(x.detach().clone())
+                self.model.reset_optimizer()
 
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
@@ -193,10 +194,11 @@ class EnGCN(torch.nn.Module):
         # lm_x_train = lm_x[split_mask["train"]]
         # pesudo_labels_train = pseudo_labels[split_mask["train"]]
         # y_emb_train = y_emb[split_mask["train"]]
-        
-        train_set = [split_mask["train"].nonzero().squeeze(),lm_x.to(device), y_emb, pseudo_labels]
+
+        train_set = [split_mask["train"].nonzero().squeeze(),
+                     lm_x.to(device), y_emb, pseudo_labels]
         # train_loader = torch.utils.data.DataLoader(
-        #     train_set, batch_size=self.batch_size, num_workers=0, 
+        #     train_set, batch_size=self.batch_size, num_workers=0,
         # )
         best_valid_acc = 0.0
         use_label_mlp = self.use_label_mlp
@@ -204,11 +206,8 @@ class EnGCN(torch.nn.Module):
             use_label_mlp = False  # warm up
         for epoch in range(self.epochs):
             start = time.time()
-            # _loss, _train_acc = self.model.train_net(
-            #     x_train, y_emb_train, pesudo_labels_train, loss_op, device, use_label_mlp)
-            _loss, _train_acc = self.model.train_net(
-                train_set, loss_op, device, use_label_mlp
-            )
+            loss, loss_gnn, loss_z, _train_acc = self.model.train_net(
+                train_set, loss_op, device, use_label_mlp)
             end = time.time()
             if (epoch + 1) % self.interval == 0:
                 use_label_mlp = False if hop == 0 else self.use_label_mlp
@@ -217,10 +216,11 @@ class EnGCN(torch.nn.Module):
                 print(
                     f"Model: {hop:02d}, "
                     f"Epoch: {epoch:02d}, "
+                    f"Loss: {loss:.4f}, Loss(GNN): {loss_gnn:.4f}, Loss(Z): {loss_z:.4f}, "
                     f"Train acc: {acc['train']*100:.4f}, "
                     f"Valid acc: {acc['valid']*100:.4f}, "
                     f"Test acc: {acc['test']*100:.4f}, "
-                    f"Time: {(end-start):.4f}"
+                    # f"Time: {(end-start):.4f}"
                 )
                 if acc["valid"] > best_valid_acc:
                     best_valid_acc = acc["valid"]

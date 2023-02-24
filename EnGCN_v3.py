@@ -88,6 +88,7 @@ def main(args):
             "EnGCN",
         ]:
             train_loss, valid_acc, test_acc = trnr.train_ensembling(seed)
+            trnr.save()
         else:
             train_loss, valid_acc, test_acc = trnr.train_and_test(seed)
         list_test_acc.append(test_acc)

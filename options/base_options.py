@@ -190,6 +190,8 @@ class BaseOptions:
 
         parser.add_argument("--alpha", type=float, default=0.5)
 
+        parser.add_argument("--stage", type=int, default=1)
+
         args = parser.parse_args()
         args = self.reset_dataset_dependent_parameters(args)
 

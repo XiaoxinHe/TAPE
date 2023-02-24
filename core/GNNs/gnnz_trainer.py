@@ -4,7 +4,7 @@ from time import time
 
 from core.GNNs.GCN.model import GCNZ
 from core.utils.modules.early_stopper import EarlyStopping
-from core.utils.data.dataset import load_data
+from core.preprocess import preprocessing
 from core.utils.function.os_utils import init_path
 from core.utils.function.np_utils import save_memmap
 
@@ -23,7 +23,7 @@ class GNNZTrainer():
         self.ckpt = f"output/{DATASET}/GNN{stage}.pt"
 
         # ! Load data
-        data = load_data(DATASET, use_text=False)
+        data = preprocessing(DATASET, use_text=False)
 
         # ! Init gnn feature
         lm_x = np.memmap(f"output/{DATASET}/bert.emb{stage-1}", mode='r',
