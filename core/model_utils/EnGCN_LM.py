@@ -131,11 +131,11 @@ class EnGCN(torch.nn.Module):
             # y_emb, x = self.propagate(y_emb), self.propagate(x)
             y_emb = self.propagate(y_emb.cpu())
 
-            x = self.model.z
-            x = self.propagate(x.cpu())
-            with torch.no_grad():
-                self.model.z = torch.nn.Parameter(x.detach().clone())
-                self.model.reset_optimizer()
+            # x = self.model.z
+            # x = self.propagate(x.cpu())
+            # with torch.no_grad():
+            #     self.model.z = torch.nn.Parameter(x.detach().clone())
+            #     self.model.reset_optimizer()
 
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(

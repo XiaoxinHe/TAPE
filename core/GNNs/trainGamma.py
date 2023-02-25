@@ -1,5 +1,5 @@
 import argparse
-from core.GNNs.gnn_trainer import GNNTrainer
+from core.GNNs.gamma_trainer import GammaTrainer
 
 
 if __name__ == "__main__":
@@ -9,8 +9,7 @@ if __name__ == "__main__":
     parser.add_argument('--stage', type=int, default=0)
     parser.add_argument('--dataset', type=str, default='cora')
     args = parser.parse_args()
-
-    print(f"\n\n[GNN/{args.stage}]")
-    trainer = GNNTrainer(args)
-    trainer.train()
-    trainer.eval_and_save()
+    
+    print(f"\n\n[Gamma/{args.stage}]")
+    trainer = GammaTrainer(args)
+    trainer.update()

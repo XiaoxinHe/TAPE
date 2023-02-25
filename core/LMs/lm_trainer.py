@@ -1,9 +1,9 @@
 import torch
 from core.utils.data.dataset import Dataset
 from transformers import BertTokenizer, AutoModel, TrainingArguments, Trainer, EarlyStoppingCallback
-from core.LMs.model import BertClassifier
+from core.LMs.model import BertEmb
 
-from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
+from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
 
 
@@ -15,7 +15,7 @@ class LMTrainer():
     def train(self):
 
         # Preprocess data
-        data, text = get_raw_text(use_text=True)
+        data, text = load_data(dataset=self.dataset_name, use_text=True)
 
         # Define pretrained tokenizer and model
         tokenizer = BertTokenizer.from_pretrained(self.model_name)
@@ -30,7 +30,7 @@ class LMTrainer():
             dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-        model = BertClassifier(bert_model, n_labels=data.y.unique().size(0))
+        model = BertEmb(bert_model, n_labels=data.y.unique().size(0), is_augmented=False)
 
         # Define Trainer
         args = TrainingArguments(

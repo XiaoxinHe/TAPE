@@ -222,7 +222,10 @@ class BaseOptions:
             # args.num_feats = 128
         elif args.dataset == 'citeseer':
             args.num_classes = 6
-            args.num_feats = 3703
+            if args.LM_emb_path or args.GIANT is not None:
+                args.num_feats = 128
+            else:
+                args.num_feats = 3703
         elif args.dataset == 'pubmed':
             args.num_classes = 3
             args.num_feats = 500

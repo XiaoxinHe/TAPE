@@ -7,11 +7,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='infLM')
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--stage', type=int, default=0)
+    parser.add_argument('--dataset', type=str, default='cora')
     args = parser.parse_args()
-    
-    
-    trainer = ZTrainer(args.device, args.stage)
-    trainer.train()
-    trainer.eval_and_save()
-    
-    
+
+    trainer = ZTrainer(args)
+    print(f"\n\n[Z/{args.stage}]")
+    if args.stage > 0:
+        trainer.train()
+        trainer.eval_and_save()
+    else:
+        trainer.save()

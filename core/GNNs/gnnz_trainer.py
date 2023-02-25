@@ -33,7 +33,7 @@ class GNNZTrainer():
         self.lm_x = lm_x.to(device)
         self.data = data.to(device)
 
-        if stage > 1:
+        if stage > 0:
             z = np.memmap(f"output/{DATASET}/z.emb{stage-1}", mode='r',
                           dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
             z = torch.Tensor(np.array(z))

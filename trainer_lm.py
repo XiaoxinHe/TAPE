@@ -92,7 +92,7 @@ class trainer(object):
         return acc
 
     def save(self):
-        save_memmap(self.model.model.z.detach().numpy(), init_path(
+        save_memmap(self.model.model.z.detach().cpu().numpy(), init_path(
             f"output/{self.dataset}/z.emb{self.stage}"), dtype=np.float32)
 
     def get_input_dict(self, epoch):

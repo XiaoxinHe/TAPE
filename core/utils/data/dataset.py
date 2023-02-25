@@ -3,10 +3,11 @@ import torch
 
 # Create torch dataset
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels=None, features=None):
+    def __init__(self, encodings, labels=None, features=None, gamma=None):
         self.encodings = encodings
         self.labels = labels
         self.features = features
+        self.gamma=gamma
 
     def __getitem__(self, idx):
         item = {key: torch.tensor(val[idx])
@@ -16,6 +17,8 @@ class Dataset(torch.utils.data.Dataset):
             item["labels"] = torch.tensor(self.labels[idx])
         if self.features is not None:
             item["features"] = self.features[idx]
+        if self.gamma is not None:
+            item["gamma"] = self.gamma[idx]
         return item
 
     def __len__(self):

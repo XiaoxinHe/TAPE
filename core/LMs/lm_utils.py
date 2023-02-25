@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 def compute_metrics(p):
@@ -25,6 +26,18 @@ def compute_loss(logits, labels, emb, pesudo_emb, pl_weight=0.5, is_augmented=Fa
     else:
         def deal_nan(x): return 0 if th.isnan(x) else x
         # print(logits.shape, labels.shape)
+        loss = deal_nan(cross_entropy(logits, labels))
+    return loss
+
+
+def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_augmented=False):
+
+    if is_augmented:
+        l2_loss = torch.nn.MSELoss()
+        loss = 0.5*penalty*l2_loss(emb, pesudo_emb+gamma/penalty)
+    else:
+        cross_entropy = torch.nn.CrossEntropyLoss()
+        def deal_nan(x): return 0 if torch.isnan(x) else x
         loss = deal_nan(cross_entropy(logits, labels))
     return loss
 
