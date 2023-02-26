@@ -1,16 +1,12 @@
-from ogb.nodeproppred import PygNodePropPredDataset
 import torch
 import pandas as pd
-import torch_geometric.transforms as T
+from ogb.nodeproppred import PygNodePropPredDataset
 
 
 def get_raw_text_arxiv(use_text=False):
-    # dataset = PygNodePropPredDataset(
-    #     'ogbn-arxiv', transform=T.ToSparseTensor())
     dataset = PygNodePropPredDataset('ogbn-arxiv')
     data = dataset[0]
     idx_splits = dataset.get_idx_split()
-
     train_mask = torch.zeros(data.x.size(0)).bool()
     val_mask = torch.zeros(data.x.size(0)).bool()
     test_mask = torch.zeros(data.x.size(0)).bool()

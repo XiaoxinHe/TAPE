@@ -34,7 +34,8 @@ def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_au
 
     if is_augmented:
         l2_loss = torch.nn.MSELoss()
-        loss = 0.5*penalty*l2_loss(emb, pesudo_emb+gamma/penalty)
+        # loss = 0.5*penalty*l2_loss(emb, pesudo_emb+gamma/penalty)
+        loss = l2_loss(emb, pesudo_emb+gamma/penalty)
     else:
         cross_entropy = torch.nn.CrossEntropyLoss()
         def deal_nan(x): return 0 if torch.isnan(x) else x
@@ -57,5 +58,4 @@ def load_data(dataset, use_text=False):
 
     data, text = get_raw_text(use_text)
 
-    print(data)
     return data, text

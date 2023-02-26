@@ -10,6 +10,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default="cora")
     args = parser.parse_args()
 
+    print(f"\n\n[LM/{args.stage}]")
     trainer = LMTrainer(args)
 
     # ! Load data and train

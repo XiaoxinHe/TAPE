@@ -1,5 +1,5 @@
-import argparse
 from core.GNNs.z_trainer import ZTrainer
+import argparse
 
 
 if __name__ == "__main__":
@@ -10,8 +10,8 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='cora')
     args = parser.parse_args()
 
-    trainer = ZTrainer(args)
     print(f"\n\n[Z/{args.stage}]")
+    trainer = ZTrainer(args)
     if args.stage > 0:
         trainer.train()
         trainer.eval_and_save()

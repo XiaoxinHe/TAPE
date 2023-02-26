@@ -117,8 +117,8 @@ class LMTrainer():
         val_metrics = trainer.predict(self.val_dataset).metrics
         test_metrics = trainer.predict(self.test_dataset).metrics
 
-        print(train_metrics)
-        print(val_metrics)
+        # print(train_metrics)
+        # print(val_metrics)
         print(test_metrics)
 
         # train_metrics = trainer.predict(self.dataset).metrics

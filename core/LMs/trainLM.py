@@ -11,7 +11,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     trainer = LMTrainer(args)
-    print(f"\n\n[LM/{args.stage}]")
+
     # ! Load data and train
     trainer.train()
     trainer.eval_and_save()
