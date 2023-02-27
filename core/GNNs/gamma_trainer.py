@@ -14,18 +14,16 @@ class GammaTrainer():
         self.epochs = 200
         self.stage = args.stage
         self.dataset = args.dataset
-        self.penalty = 0.5
-
-        # ! Load data
+        self.penalty = 1.0
 
     def update(self):
 
         data = preprocessing(self.dataset, use_text=False)
-        lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}", mode='r',
-                         dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
-        lm_x = torch.Tensor(np.array(lm_x))
 
         if self.stage > 0:
+            lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}", mode='r',
+                             dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
+            lm_x = torch.Tensor(np.array(lm_x))
             z = np.memmap(f"output/{self.dataset}/z.emb{self.stage}", mode='r',
                           dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
             z = torch.Tensor(np.array(z))
@@ -35,8 +33,8 @@ class GammaTrainer():
             gamma = torch.Tensor(np.array(gamma))
             gamma = gamma + self.penalty*(z-lm_x)
         else:
-            gamma = torch.zeros_like(lm_x)
-        
+            gamma = torch.zeros(data.x.shape[0], feat_shrink)
+
         print(gamma)
         save_memmap(gamma.cpu().numpy(), init_path(
             f"output/{self.dataset}/gamma.emb{self.stage}"), dtype=np.float32)

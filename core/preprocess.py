@@ -35,7 +35,7 @@ def preprocessing(dataset, use_text=True):
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
     data, text = get_raw_text(use_text)
-    print(data)
+
     if "ogbn" in dataset:
         trans = Compose([ToUndirected(), ToSparseTensor()])
         data = trans(data)

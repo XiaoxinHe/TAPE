@@ -1,9 +1,7 @@
 import numpy as np
 import torch
 from time import time
-
 from core.GNNs.GCN.model import GCN
-from core.GNNs.SAGE.model import SAGE
 from core.utils.modules.early_stopper import EarlyStopping
 from core.preprocess import preprocessing
 
@@ -24,11 +22,10 @@ class GNNTrainer():
         data = preprocessing(self.dataset, use_text=False)
 
         # ! Init gnn feature
-        emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage-1}', mode='r',
+        emb = np.memmap(f'output/{self.dataset}/z.emb{self.stage-1}', mode='r',
                         dtype=np.float32, shape=(data.x.shape[0], 128))
         emb = torch.Tensor(np.array(emb))
         self.features = emb.to(self.device)
-        # self.features = data.x.to(self.device)
         self.data = data.to(self.device)
 
         # ! Trainer init

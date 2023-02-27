@@ -28,59 +28,14 @@ class ZTrainer():
         self.device = args.device
         self.stage = args.stage
         self.dataset = args.dataset
-        self.penalty = 0.5
+        self.penalty = 1.0
         self.epochs = 1000
 
-        self.gnn_ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
         self.z_ckpt = f"output/{self.dataset}/z{self.stage}.pt"
 
         # ! Load data
         data = preprocessing(self.dataset, use_text=False)
         self.data = data.to(self.device)
-
-        lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}", mode='r',
-                         dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
-        lm_x = torch.Tensor(np.array(lm_x))
-        self.lm_x = lm_x.to(self.device)
-
-        if self.stage == 0:
-            self.model = Z(lm_x.detach().clone()).to(self.device)
-        else:
-            self.gnn = GCN(in_channels=self.lm_x.shape[1],
-                           hidden_channels=128,
-                           out_channels=data.y.unique().size(0),
-                           num_layers=4,
-                           dropout=0.0
-                           ).to(self.device)
-            self.gnn.load_state_dict(torch.load(self.gnn_ckpt))
-            gamma = np.memmap(f"output/{self.dataset}/gamma.emb{self.stage-1}", mode='r',
-                              dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
-            gamma = torch.Tensor(np.array(gamma))
-            self.gamma = gamma.to(self.device)
-
-            z = np.memmap(f"output/{self.dataset}/z.emb{self.stage-1}", mode='r',
-                          dtype=np.float32, shape=(data.x.shape[0], feat_shrink))
-            z = torch.Tensor(np.array(z))
-            self.model = Z(z.detach().clone()).to(self.device)
-
-            self.optimizer = torch.optim.Adam(
-                self.model.parameters(), lr=1e-2, weight_decay=0.0)
-
-            trainable_params = sum(p.numel()
-                                   for p in self.model.parameters() if p.requires_grad)
-
-            print(f'!!!!!Z Phase, trainable_params are {trainable_params}')
-            self.stopper = EarlyStopping(
-                patience=early_stop, path=self.z_ckpt) if early_stop > 0 else None
-            self.loss_func_gnn = torch.nn.CrossEntropyLoss()
-            self.l2_loss = torch.nn.MSELoss()
-
-            from core.GNNs.gnn_utils import Evaluator
-            self._evaluator = Evaluator(name=self.dataset)
-            self.evaluator = lambda pred, labels: self._evaluator.eval(
-                {"y_pred": pred.argmax(dim=-1, keepdim=True),
-                 "y_true": labels.view(-1, 1)}
-            )["acc"]
 
     def _train(self):
         # ! Shared
@@ -116,6 +71,48 @@ class ZTrainer():
         return val_acc, test_acc, logits
 
     def train(self):
+        lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}", mode='r',
+                         dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
+        lm_x = torch.Tensor(np.array(lm_x))
+        self.lm_x = lm_x.to(self.device)
+        self.model = Z(lm_x.detach().clone()).to(self.device)
+
+        self.gnn_ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
+        self.gnn = GCN(in_channels=self.lm_x.shape[1],
+                       hidden_channels=128,
+                       out_channels=self.data.y.unique().size(0),
+                       num_layers=4,
+                       dropout=0.0
+                       ).to(self.device)
+        self.gnn.load_state_dict(torch.load(self.gnn_ckpt))
+        gamma = np.memmap(f"output/{self.dataset}/gamma.emb{self.stage-1}", mode='r',
+                          dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
+        gamma = torch.Tensor(np.array(gamma))
+        self.gamma = gamma.to(self.device)
+
+        z = np.memmap(f"output/{self.dataset}/z.emb{self.stage-1}", mode='r',
+                      dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
+        z = torch.Tensor(np.array(z))
+        self.model = Z(z.detach().clone()).to(self.device)
+
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=1e-2, weight_decay=0.0)
+
+        trainable_params = sum(p.numel()
+                               for p in self.model.parameters() if p.requires_grad)
+
+        print(f'!!!!!Z Phase, trainable_params are {trainable_params}')
+        self.stopper = EarlyStopping(
+            patience=early_stop, path=self.z_ckpt) if early_stop > 0 else None
+        self.loss_func_gnn = torch.nn.CrossEntropyLoss()
+        self.l2_loss = torch.nn.MSELoss()
+
+        from core.GNNs.gnn_utils import Evaluator
+        self._evaluator = Evaluator(name=self.dataset)
+        self.evaluator = lambda pred, labels: self._evaluator.eval(
+            {"y_pred": pred.argmax(dim=-1, keepdim=True),
+             "y_true": labels.view(-1, 1)}
+        )["acc"]
         # ! Training
         for epoch in range(self.epochs):
             t0, es_str = time(), ''
@@ -149,6 +146,8 @@ class ZTrainer():
 
     @torch.no_grad()
     def save(self):
-        z = self.model()
-        save_memmap(z.cpu().numpy(), init_path(
+        lm_x = np.memmap(f"output/{self.dataset}/bert.emb0", mode='r',
+                         dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
+
+        save_memmap(lm_x, init_path(
             f"output/{self.dataset}/z.emb{self.stage}"), dtype=np.float32)

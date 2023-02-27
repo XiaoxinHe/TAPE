@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from core.utils.data.dataset import Dataset
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, EarlyStoppingCallback
-from core.LMs.model import ADMMBertEmb
+from core.LMs.model import ADMMBert
 
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
@@ -11,13 +11,14 @@ from core.utils.function.os_utils import init_path
 feat_shrink = 128
 
 
-class LMTrainer():
+class AdmmLMTrainer():
     def __init__(self, args):
         # self.model_name = "bert-base-uncased"
         self.model_name = "microsoft/deberta-base"
         self.stage = args.stage
         self.dataset_name = args.dataset
-        self.penalty = 0.5
+        self.penalty = 1.0
+
 
     def train(self):
         # Preprocess data
@@ -51,7 +52,7 @@ class LMTrainer():
         bert_model.config.attention_dropout = 0.1
         bert_model.config.cla_dropout = 0.1
 
-        self.model = ADMMBertEmb(bert_model,
+        self.model = ADMMBert(bert_model,
                                  n_labels=data.y.unique().size(0),
                                  is_augmented=self.stage > 0,
                                  feat_shrink=feat_shrink)

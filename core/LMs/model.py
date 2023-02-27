@@ -52,7 +52,7 @@ class BertEmb(PreTrainedModel):
         return TokenClassifierOutput(loss=loss, logits=logits)
 
 
-class ADMMBertEmb(PreTrainedModel):
+class ADMMBert(PreTrainedModel):
     def __init__(self, model, n_labels, pseudo_label_weight=0.5, dropout=0.0, seed=0, cla_bias=True, is_augmented=False, feat_shrink=''):
         super().__init__(model.config)
         self.bert_encoder = model
@@ -96,3 +96,40 @@ class ADMMBertEmb(PreTrainedModel):
         loss = compute_admm_loss(logits, labels, cls_token_emb, features,
                                  gamma, penalty=self.pl_weight, is_augmented=self.is_augmented)
         return TokenClassifierOutput(loss=loss, logits=logits)
+
+
+# class ADMMBertInf(PreTrainedModel):
+#     def __init__(self, model, ckpt_emb):
+#         super().__init__(model.config)
+#         self.model = model
+#         self.ckpt_emb = ckpt_emb
+#         self.feat_shrink = self.model.feat_shrink
+#         self.pl_weight = self.model.pl_weight
+#         self.is_augmented = self.model.is_augmented
+
+#     def forward(self,
+#                 input_ids=None,
+#                 attention_mask=None,
+#                 labels=None,
+#                 features=None,
+#                 node_id=None,
+#                 gamma=None,
+#                 return_dict=None):
+#         outputs = self.model.bert_encoder(input_ids=input_ids,
+#                                           attention_mask=attention_mask,
+#                                           return_dict=return_dict,
+#                                           output_hidden_states=True)
+#         emb = outputs['hidden_states'][-1]
+#         cls_token_emb = emb.permute(1, 0, 2)[0]
+#         if self.feat_shrink:
+#             cls_token_emb = self.model.feat_shrink_layer(cls_token_emb)
+#         logits = self.model.classifier(cls_token_emb)
+#         if labels.shape[-1] == 1:
+#             labels = labels.squeeze()
+#         loss = compute_admm_loss(logits, labels, cls_token_emb, features,
+#                                  gamma, penalty=self.pl_weight, is_augmented=self.is_augmented)
+
+#         batch_nodes = node_id.cpu().numpy()
+#         self.ckpt_emb[batch_nodes] = cls_token_emb.cpu().numpy()
+
+#         return TokenClassifierOutput(loss=loss, logits=logits)

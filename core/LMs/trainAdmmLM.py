@@ -1,5 +1,5 @@
 import argparse
-from core.LMs.admm_lm_trainer import LMTrainer
+from core.LMs.admm_lm_trainer import AdmmLMTrainer
 
 
 if __name__ == "__main__":
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(f"\n\n[LM/{args.stage}]")
-    trainer = LMTrainer(args)
+    trainer = AdmmLMTrainer(args)
 
     # ! Load data and train
     trainer.train()
