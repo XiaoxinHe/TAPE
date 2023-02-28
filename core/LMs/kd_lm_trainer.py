@@ -1,8 +1,8 @@
 import torch
 import numpy as np
-from core.utils.data.dataset import Dataset
+from core.utils.data.dataset import KDDataset
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, EarlyStoppingCallback
-from core.LMs.model import ADMMBert
+from core.LMs.model import KDBert
 
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
@@ -11,33 +11,28 @@ from core.utils.function.os_utils import init_path
 feat_shrink = 128
 
 
-class AdmmLMTrainer():
+class KDLMTrainer():
     def __init__(self, args):
-        # self.model_name = "bert-base-uncased"
         self.model_name = "microsoft/deberta-base"
         self.stage = args.stage
         self.dataset_name = args.dataset
-        self.penalty = 1.0
 
     def train(self):
         # Preprocess data
         data, text = load_data(dataset=self.dataset_name, use_text=True)
         self.num_nodes = data.x.shape[0]
-        gamma = None
-
+        self.n_labels = data.y.unique().size(0)
+        pred_t = None
         if self.stage > 0:
-            emb = np.memmap(f'output/{self.dataset_name}/z.emb{self.stage-1}', mode='r',
-                            dtype=np.float32, shape=(self.num_nodes, feat_shrink))
-            emb = torch.Tensor(np.array(emb))
-            data.x = emb
-            gamma = np.memmap(f'output/{self.dataset_name}/gamma.emb{self.stage-1}', mode='r',
-                              dtype=np.float32, shape=(self.num_nodes, feat_shrink))
+            pred_t = np.memmap(f'output/{self.dataset_name}/gnn.pred{self.stage-1}', mode='r',
+                               dtype=np.float32, shape=(self.num_nodes, self.n_labels))
+            pred_t = torch.Tensor(np.array(pred_t))
+            _, pred_t = torch.softmax(pred_t, dim=-1).max(-1)
 
         # Define pretrained tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
-        self.dataset = Dataset(
-            X, data.y.tolist(), features=data.x, gamma=gamma)
+        self.dataset = KDDataset(X, data.y.tolist(), pred_t=pred_t)
 
         self.train_dataset = torch.utils.data.Subset(
             self.dataset, data.train_mask.nonzero().squeeze().tolist())
@@ -51,10 +46,10 @@ class AdmmLMTrainer():
         bert_model.config.attention_dropout = 0.1
         bert_model.config.cla_dropout = 0.1
 
-        self.model = ADMMBert(bert_model,
-                              n_labels=data.y.unique().size(0),
-                              is_augmented=self.stage > 0,
-                              feat_shrink=feat_shrink)
+        self.model = KDBert(bert_model,
+                            n_labels=self.n_labels,
+                            is_augmented=self.stage > 0,
+                            feat_shrink=feat_shrink)
 
         if self.stage > 0:
             self.model.load_state_dict(torch.load(
@@ -77,12 +72,12 @@ class AdmmLMTrainer():
             dataloader_num_workers=1,
             dataloader_drop_last=True,
             weight_decay=0.01,
-            # learning_rate=2e-5
+            learning_rate=2e-5
         )
         self.trainer = Trainer(
             model=self.model,
             args=args,
-            train_dataset=self.dataset if self.stage > 0 else self.train_dataset,
+            train_dataset=self.train_dataset,
             eval_dataset=self.val_dataset,
             compute_metrics=compute_metrics,
             callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
@@ -97,7 +92,10 @@ class AdmmLMTrainer():
             f"output/{self.dataset_name}/bert{self.stage}.pt"))
         ckpt_emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"), dtype=np.float32, mode='w+', shape=(
             self.num_nodes, feat_shrink if feat_shrink else 768))
+        ckpt_pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
+                             dtype=np.float32, mode='w+', shape=(self.num_nodes, self.n_labels))
         self.model.ckpt_emb = ckpt_emb
+        self.model.ckpt_pred = ckpt_pred
 
         # Define Trainer
         args = TrainingArguments(

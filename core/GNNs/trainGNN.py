@@ -1,10 +1,12 @@
 import argparse
 from core.GNNs.gnn_trainer import GNNTrainer
+# from core.GNNs.kd_gnn_trainer import GNNTrainer
+# from core.GNNs.prune_gnn_trainer import GNNTrainer
 
 
 if __name__ == "__main__":
     # ! Load data and train
-    parser = argparse.ArgumentParser(description='infLM')
+    parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--stage', type=int, default=0)
     parser.add_argument('--dataset', type=str, default='cora')

@@ -1,12 +1,12 @@
 import numpy as np
 import torch
 from time import time
-from core.GNNs.GCN.model import GCN
+from core.GNNs.GCN.model import KDGCN
 from core.utils.modules.early_stopper import EarlyStopping
 from core.preprocess import preprocessing
+from core.utils.function.os_utils import init_path
+from core.utils.function.np_utils import save_memmap
 
-
-LOG_FREQ = 10
 
 early_stop = 50
 
@@ -17,24 +17,28 @@ class GNNTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 200
+        self.pred = init_path(f"output/{self.dataset}/gnn.pred{self.stage}")
+        self.emb = init_path(f"output/{self.dataset}/gnn.emb{self.stage}")
 
         # ! Load data
         data = preprocessing(self.dataset, use_text=False)
 
         # ! Init gnn feature
-        emb = np.memmap(f'output/{self.dataset}/z.emb{self.stage-1}', mode='r',
-                        dtype=np.float32, shape=(data.x.shape[0], 128))
+        emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
+                        mode='r', dtype=np.float32, shape=(data.x.shape[0], 128))
         emb = torch.Tensor(np.array(emb))
         self.features = emb.to(self.device)
+        # self.features = data.x.to(self.device)
         self.data = data.to(self.device)
+        self.n_labels = self.data.y.unique().size(0)
 
         # ! Trainer init
-        self.model = GCN(in_channels=self.features.shape[1],
-                         hidden_channels=128,
-                         out_channels=data.y.unique().size(0),
-                         num_layers=4,
-                         dropout=0.0).to(self.device)
-        if self.stage > 1:
+        self.model = KDGCN(in_channels=self.features.shape[1],
+                           hidden_channels=128,
+                           out_channels=self.n_labels,
+                           num_layers=4,
+                           dropout=0.0).to(self.device)
+        if self.stage > 0:
             self.model.load_state_dict(torch.load(
                 f"output/{self.dataset}/GNN{self.stage-1}.pt"))
         self.optimizer = torch.optim.Adam(
@@ -57,16 +61,10 @@ class GNNTrainer():
              "y_true": labels.view(-1, 1)}
         )["acc"]
 
-    def _forward(self, x, edge_index):
-        logits = self.model(x, edge_index)  # small-graph
-        return logits
-
     def _train(self):
-        # ! Shared
         self.model.train()
         self.optimizer.zero_grad()
-        # ! Specific
-        logits = self._forward(self.features, self.data.edge_index)
+        embs, logits = self.model(self.features, self.data.edge_index)
         loss = self.loss_func(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         train_acc = self.evaluator(
@@ -79,19 +77,19 @@ class GNNTrainer():
     @ torch.no_grad()
     def _evaluate(self):
         self.model.eval()
-        logits = self._forward(self.features, self.data.edge_index)
+        embs, logits = self.model(self.features, self.data.edge_index)
         val_acc = self.evaluator(
             logits[self.data.val_mask], self.data.y[self.data.val_mask])
         test_acc = self.evaluator(
             logits[self.data.test_mask], self.data.y[self.data.test_mask])
-        return val_acc, test_acc, logits
+        return val_acc, test_acc, embs, logits
 
     def train(self):
         # ! Training
         for epoch in range(self.epochs):
             t0, es_str = time(), ''
             loss, train_acc = self._train()
-            val_acc, test_acc, _ = self._evaluate()
+            val_acc, test_acc, _, _ = self._evaluate()
             if self.stopper is not None:
                 es_flag, es_str = self.stopper.step(val_acc, self.model, epoch)
                 if es_flag:
@@ -111,6 +109,9 @@ class GNNTrainer():
     @ torch.no_grad()
     def eval_and_save(self):
         torch.save(self.model.state_dict(), self.ckpt)
-        val_acc, test_acc, logits = self._evaluate()
+        val_acc, test_acc, embs, logits = self._evaluate()
         res = {'val_acc': val_acc, 'test_acc': test_acc}
         print(res)
+        save_memmap(logits.cpu().numpy(), self.pred, dtype=np.float32)
+        save_memmap(embs.cpu().numpy(), self.emb, dtype=np.float32)
+        

@@ -34,12 +34,30 @@ def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_au
 
     if is_augmented:
         l2_loss = torch.nn.MSELoss()
-        # loss = 0.5*penalty*l2_loss(emb, pesudo_emb+gamma/penalty)
-        loss = l2_loss(emb, pesudo_emb+gamma/penalty)
+        loss = 0.5*penalty*l2_loss(emb, pesudo_emb+gamma/penalty)
+        # loss = l2_loss(emb, pesudo_emb+gamma/penalty)
     else:
         cross_entropy = torch.nn.CrossEntropyLoss()
         def deal_nan(x): return 0 if torch.isnan(x) else x
         loss = deal_nan(cross_entropy(logits, labels))
+    return loss
+
+
+def compute_kd_loss(logits, labels, pred_t, alpha=0.5, is_augmented=False):
+    criterion_l = torch.nn.CrossEntropyLoss()
+    criterion_t = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
+    def deal_nan(x): return 0 if torch.isnan(x) else x
+    loss = deal_nan(criterion_l(logits, labels))
+
+    # if is_augmented:
+    #     out = logits.log_softmax(dim=1)
+    #     loss_t = criterion_t(out, pred_t)
+    #     loss = alpha*loss + (1-alpha)*loss_t
+
+    if is_augmented:
+        loss_t = deal_nan(criterion_l(logits, pred_t))
+        loss = alpha*loss + (1-alpha)*loss_t
+
     return loss
 
 
