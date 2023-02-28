@@ -27,7 +27,6 @@ class KDLMTrainer():
             pred_t = np.memmap(f'output/{self.dataset_name}/gnn.pred{self.stage-1}', mode='r',
                                dtype=np.float32, shape=(self.num_nodes, self.n_labels))
             pred_t = torch.Tensor(np.array(pred_t))
-            _, pred_t = torch.softmax(pred_t, dim=-1).max(-1)
 
         # Define pretrained tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -42,14 +41,12 @@ class KDLMTrainer():
             self.dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-        bert_model.config.dropout = 0.1
-        bert_model.config.attention_dropout = 0.1
-        bert_model.config.cla_dropout = 0.1
 
         self.model = KDBert(bert_model,
                             n_labels=self.n_labels,
                             is_augmented=self.stage > 0,
-                            feat_shrink=feat_shrink)
+                            feat_shrink=feat_shrink,
+                            pseudo_label_weight=0.5)
 
         if self.stage > 0:
             self.model.load_state_dict(torch.load(
@@ -64,15 +61,15 @@ class KDLMTrainer():
             evaluation_strategy="steps",
             eval_steps=50,
             per_device_train_batch_size=8,
-            per_device_eval_batch_size=16,
-            num_train_epochs=1 if self.stage > 0 else 5,
+            per_device_eval_batch_size=8*8,
+            num_train_epochs=5,
             seed=0,
             load_best_model_at_end=True,
             disable_tqdm=True,
             dataloader_num_workers=1,
             dataloader_drop_last=True,
             weight_decay=0.01,
-            learning_rate=2e-5
+            # learning_rate=2e-5
         )
         self.trainer = Trainer(
             model=self.model,
@@ -93,7 +90,7 @@ class KDLMTrainer():
         ckpt_emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"), dtype=np.float32, mode='w+', shape=(
             self.num_nodes, feat_shrink if feat_shrink else 768))
         ckpt_pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
-                             dtype=np.float32, mode='w+', shape=(self.num_nodes, self.n_labels))
+                              dtype=np.float32, mode='w+', shape=(self.num_nodes, self.n_labels))
         self.model.ckpt_emb = ckpt_emb
         self.model.ckpt_pred = ckpt_pred
 
@@ -102,7 +99,7 @@ class KDLMTrainer():
             output_dir="output",
             do_train=False,
             do_predict=True,
-            per_device_eval_batch_size=16,
+            per_device_eval_batch_size=8*8,
             dataloader_drop_last=False,
             dataloader_num_workers=1,
             disable_tqdm=True,

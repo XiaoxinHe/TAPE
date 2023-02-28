@@ -1,60 +1,97 @@
 import torch
+import numpy as np
 from core.utils.data.dataset import Dataset
-from transformers import BertTokenizer, AutoModel, TrainingArguments, Trainer, EarlyStoppingCallback
+from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, EarlyStoppingCallback
 from core.LMs.model import BertEmb
 
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
+from core.utils.function.os_utils import init_path
+
+feat_shrink = 128
 
 
 class LMTrainer():
-    def __init__(self, ckpt):
-        self.model_name = "bert-base-uncased"
-        self.ckpt = ckpt
+    def __init__(self, args):
+        self.model_name = "microsoft/deberta-base"
+        self.dataset_name = args.dataset
 
     def train(self):
-
         # Preprocess data
         data, text = load_data(dataset=self.dataset_name, use_text=True)
+        self.num_nodes = data.x.size(0)
 
         # Define pretrained tokenizer and model
-        tokenizer = BertTokenizer.from_pretrained(self.model_name)
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
-        dataset = Dataset(X, data.y.tolist())
+        self.dataset = Dataset(X, data.y.tolist())
 
-        train_dataset = torch.utils.data.Subset(
-            dataset, data.train_mask.nonzero().squeeze().tolist())
-        val_dataset = torch.utils.data.Subset(
-            dataset, data.val_mask.nonzero().squeeze().tolist())
-        test_dataset = torch.utils.data.Subset(
-            dataset, data.test_mask.nonzero().squeeze().tolist())
+        self.train_dataset = torch.utils.data.Subset(
+            self.dataset, data.train_mask.nonzero().squeeze().tolist())
+        self.val_dataset = torch.utils.data.Subset(
+            self.dataset, data.val_mask.nonzero().squeeze().tolist())
+        self.test_dataset = torch.utils.data.Subset(
+            self.dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-        model = BertEmb(bert_model, n_labels=data.y.unique().size(0), is_augmented=False)
+
+        self.model = BertEmb(bert_model,
+                             n_labels=data.y.unique().size(0),
+                             feat_shrink=feat_shrink)
 
         # Define Trainer
         args = TrainingArguments(
             output_dir="output",
             logging_steps=10,
             evaluation_strategy="steps",
-            eval_steps=10,
-            per_device_train_batch_size=16,
+            eval_steps=50,
+            per_device_train_batch_size=8,
             per_device_eval_batch_size=16,
             num_train_epochs=5,
             seed=0,
             load_best_model_at_end=True,
+            disable_tqdm=True,
+            dataloader_num_workers=1,
+            dataloader_drop_last=True,
+            weight_decay=0.01,
+            # learning_rate=2e-5
         )
-        trainer = Trainer(
-            model=model,
+        self.trainer = Trainer(
+            model=self.model,
             args=args,
-            train_dataset=train_dataset,
-            eval_dataset=val_dataset,
+            train_dataset=self.train_dataset,
+            eval_dataset=self.val_dataset,
             compute_metrics=compute_metrics,
             callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
         )
 
         # Train pre-trained model
-        trainer.train()
-        torch.save(model.state_dict(), self.ckpt)
-        metrics = trainer.predict(test_dataset).metrics
-        print(metrics)
+        self.trainer.train()
+
+    @torch.no_grad()
+    def eval_and_save(self):
+        torch.save(self.model.state_dict(), init_path(
+            f"output/{self.dataset_name}/bert0.pt"))
+        ckpt_emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb0"), dtype=np.float32, mode='w+', shape=(
+            self.num_nodes, feat_shrink if feat_shrink else 768))
+        self.model.ckpt_emb = ckpt_emb
+
+        # Define Trainer
+        args = TrainingArguments(
+            output_dir="output",
+            do_train=False,
+            do_predict=True,
+            per_device_eval_batch_size=16,
+            dataloader_drop_last=False,
+            dataloader_num_workers=1,
+            disable_tqdm=True,
+        )
+        trainer = Trainer(model=self.model,
+                          args=args,
+                          compute_metrics=compute_metrics)
+
+        train_metrics = trainer.predict(self.train_dataset).metrics
+        val_metrics = trainer.predict(self.val_dataset).metrics
+        test_metrics = trainer.predict(self.test_dataset).metrics
+
+        print(test_metrics)

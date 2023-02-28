@@ -6,8 +6,6 @@ from core.utils.modules.early_stopper import EarlyStopping
 from core.preprocess import preprocessing
 
 
-LOG_FREQ = 10
-
 early_stop = 50
 
 
@@ -17,17 +15,26 @@ class GNNTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 200
+        f_type = args.f_type
 
         # ! Load data
         data = preprocessing(self.dataset, use_text=False)
 
         # ! Init gnn feature
-        emb = np.memmap(f'output/{self.dataset}/z.emb{self.stage-1}', mode='r',
-                        dtype=np.float32, shape=(data.x.shape[0], 128))
-        emb = torch.Tensor(np.array(emb))
-        self.features = emb.to(self.device)
-        self.data = data.to(self.device)
+        if f_type == 'z':
+            emb = np.memmap(f'output/{self.dataset}/z.emb{self.stage-1}', mode='r',
+                            dtype=np.float32, shape=(data.x.shape[0], 128))
+            emb = torch.Tensor(np.array(emb))
+            self.features = emb.to(self.device)
+        elif f_type == 'lm_x':
+            emb = np.memmap(f'output/{self.dataset}/bert.emb0', mode='r',
+                            dtype=np.float32, shape=(data.x.shape[0], 128))
+            emb = torch.Tensor(np.array(emb))
+            self.features = emb.to(self.device)
+        else:
+            self.features = data.x.to(self.device)
 
+        self.data = data.to(self.device)
         # ! Trainer init
         self.model = GCN(in_channels=self.features.shape[1],
                          hidden_channels=128,

@@ -1,5 +1,7 @@
-import numpy as np
 import torch
+import torch.nn as nn
+import numpy as np
+import torch.nn.functional as F
 
 
 def compute_metrics(p):
@@ -12,9 +14,8 @@ def compute_metrics(p):
 
 
 def compute_loss(logits, labels, emb, pesudo_emb, pl_weight=0.5, is_augmented=False):
-    import torch as th
-    cross_entropy = th.nn.CrossEntropyLoss()
-    cos_sim = th.nn.CosineSimilarity()
+    cross_entropy = nn.CrossEntropyLoss()
+    cos_sim = nn.CosineSimilarity()
 
     if is_augmented:
         # def deal_nan(x): return 0 if th.isnan(x) else x
@@ -24,7 +25,7 @@ def compute_loss(logits, labels, emb, pesudo_emb, pl_weight=0.5, is_augmented=Fa
         # loss = pl_weight * pl_loss + (1 - pl_weight) * mle_loss
         # print(mle_loss.item(), pl_loss.item())
     else:
-        def deal_nan(x): return 0 if th.isnan(x) else x
+        def deal_nan(x): return 0 if torch.isnan(x) else x
         # print(logits.shape, labels.shape)
         loss = deal_nan(cross_entropy(logits, labels))
     return loss
@@ -43,20 +44,17 @@ def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_au
     return loss
 
 
-def compute_kd_loss(logits, labels, pred_t, alpha=0.5, is_augmented=False):
-    criterion_l = torch.nn.CrossEntropyLoss()
-    criterion_t = torch.nn.KLDivLoss(reduction="batchmean", log_target=False)
-    def deal_nan(x): return 0 if torch.isnan(x) else x
-    loss = deal_nan(criterion_l(logits, labels))
-
-    # if is_augmented:
-    #     out = logits.log_softmax(dim=1)
-    #     loss_t = criterion_t(out, pred_t)
-    #     loss = alpha*loss + (1-alpha)*loss_t
-
+def compute_kd_loss(out, labels, pred_t, pl_weight=0.5, is_augmented=False, T=1):
     if is_augmented:
-        loss_t = deal_nan(criterion_l(logits, pred_t))
-        loss = alpha*loss + (1-alpha)*loss_t
+        soft_loss = nn.KLDivLoss()(F.log_softmax(out/T, dim=1),
+                                   F.softmax(pred_t/T, dim=1)) * (pl_weight * T * T)
+        hard_loss = F.cross_entropy(out, labels) * (1. - pl_weight)
+        # print(soft_loss.item(), hard_loss.item())
+        loss = soft_loss+hard_loss
+    else:
+        def deal_nan(x): return 0 if torch.isnan(x) else x
+        criterion = torch.nn.CrossEntropyLoss()
+        loss = deal_nan(criterion(out, labels))
 
     return loss
 

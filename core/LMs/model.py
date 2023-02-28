@@ -157,6 +157,7 @@ class KDBert(PreTrainedModel):
                 input_ids=None,
                 attention_mask=None,
                 labels=None,
+                emb_t=None,
                 pred_t=None,
                 node_id=None,
                 return_dict=None):
@@ -178,5 +179,5 @@ class KDBert(PreTrainedModel):
             self.ckpt_pred[batch_nodes] = logits.cpu().numpy()
 
         loss = compute_kd_loss(
-            logits, labels, pred_t, alpha=self.pl_weight, is_augmented=self.is_augmented)
+            logits, labels, pred_t, pl_weight=self.pl_weight, is_augmented=self.is_augmented)
         return TokenClassifierOutput(loss=loss, logits=logits)

@@ -38,9 +38,9 @@ class GNNTrainer():
                            out_channels=self.n_labels,
                            num_layers=4,
                            dropout=0.0).to(self.device)
-        if self.stage > 0:
-            self.model.load_state_dict(torch.load(
-                f"output/{self.dataset}/GNN{self.stage-1}.pt"))
+        # if self.stage > 0:
+        #     self.model.load_state_dict(torch.load(
+        #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=0.01, weight_decay=0.0)
 
@@ -114,4 +114,3 @@ class GNNTrainer():
         print(res)
         save_memmap(logits.cpu().numpy(), self.pred, dtype=np.float32)
         save_memmap(embs.cpu().numpy(), self.emb, dtype=np.float32)
-        

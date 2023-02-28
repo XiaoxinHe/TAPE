@@ -26,10 +26,11 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class KDDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels=None, pred_t=None):
+    def __init__(self, encodings, labels=None, emb_t=None, pred_t=None):
         self.encodings = encodings
         self.labels = labels
         self.pred_t = pred_t
+        self.emb_t = emb_t
 
     def __getitem__(self, idx):
         item = {key: torch.tensor(val[idx])
@@ -39,6 +40,8 @@ class KDDataset(torch.utils.data.Dataset):
             item["labels"] = torch.tensor(self.labels[idx])
         if self.pred_t is not None:
             item["pred_t"] = self.pred_t[idx]
+        if self.emb_t is not None:
+            item["emb_t"] = self.emb_t[idx]
 
         return item
 
