@@ -36,6 +36,9 @@ def preprocessing(dataset, use_text=True):
 
     data, text = get_raw_text(use_text)
 
+    if not use_text:
+        return data
+
     if "ogbn" in dataset:
         trans = Compose([ToUndirected(), ToSparseTensor()])
         data = trans(data)
@@ -43,9 +46,6 @@ def preprocessing(dataset, use_text=True):
         trans = ToSparseTensor()
         data = trans(data)
     data.edge_index = data.adj_t
-
-    if not use_text:
-        return data
 
     print("[!] Preprocessing")
     start = time.time()

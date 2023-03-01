@@ -36,5 +36,5 @@ def save_memmap(data: np.ndarray, path, dtype=None, node_chunk_size=1000000, log
     log(f'Saved {path} as {dtype}...')
     del x
     gc.collect()
-    log('releas x')
+    # log('releas x')
     return  # SN(type=dtype, path=path, shape=data.shape)

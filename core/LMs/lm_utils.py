@@ -44,17 +44,20 @@ def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_au
     return loss
 
 
-def compute_kd_loss(out, labels, pred_t, pl_weight=0.5, is_augmented=False, T=1):
+def compute_kd_loss(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augmented=False, T=1):
     if is_augmented:
-        soft_loss = nn.KLDivLoss()(F.log_softmax(out/T, dim=1),
-                                   F.softmax(pred_t/T, dim=1)) * (pl_weight * T * T)
-        hard_loss = F.cross_entropy(out, labels) * (1. - pl_weight)
-        # print(soft_loss.item(), hard_loss.item())
-        loss = soft_loss+hard_loss
+        hard_loss = F.cross_entropy(pred, labels) * (1. - pl_weight)
+        dis_loss = nn.KLDivLoss()(F.log_softmax(pred/T, dim=1),
+                                  F.softmax(pred_t/T, dim=1)) * (pl_weight * T * T)
+
+        cos_loss = (1 - nn.CosineSimilarity(dim=-1)
+                    (emb, emb_t)).mean() * pl_weight
+        # print(hard_loss.item(), soft_loss.item())
+        loss = hard_loss + dis_loss + cos_loss
     else:
         def deal_nan(x): return 0 if torch.isnan(x) else x
         criterion = torch.nn.CrossEntropyLoss()
-        loss = deal_nan(criterion(out, labels))
+        loss = deal_nan(criterion(pred, labels))
 
     return loss
 

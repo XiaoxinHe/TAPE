@@ -176,8 +176,9 @@ class KDBert(PreTrainedModel):
         batch_nodes = node_id.cpu().numpy()
         if self.ckpt_emb is not None:
             self.ckpt_emb[batch_nodes] = cls_token_emb.cpu().numpy()
+        if self.ckpt_pred is not None:
             self.ckpt_pred[batch_nodes] = logits.cpu().numpy()
 
-        loss = compute_kd_loss(
-            logits, labels, pred_t, pl_weight=self.pl_weight, is_augmented=self.is_augmented)
+        loss = compute_kd_loss(cls_token_emb, logits,  labels, emb_t,
+                               pred_t, pl_weight=self.pl_weight, is_augmented=self.is_augmented)
         return TokenClassifierOutput(loss=loss, logits=logits)

@@ -23,15 +23,21 @@ class KDLMTrainer():
         self.num_nodes = data.x.shape[0]
         self.n_labels = data.y.unique().size(0)
         pred_t = None
+        emb_t = None
         if self.stage > 0:
             pred_t = np.memmap(f'output/{self.dataset_name}/gnn.pred{self.stage-1}', mode='r',
                                dtype=np.float32, shape=(self.num_nodes, self.n_labels))
             pred_t = torch.Tensor(np.array(pred_t))
 
+            emb_t = np.memmap(f'output/{self.dataset_name}/gnn.emb{self.stage-1}', mode='r',
+                              dtype=np.float32, shape=(self.num_nodes, feat_shrink))
+            emb_t = torch.Tensor(np.array(emb_t))
+
         # Define pretrained tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
-        self.dataset = KDDataset(X, data.y.tolist(), pred_t=pred_t)
+        self.dataset = KDDataset(
+            X, data.y.tolist(), pred_t=pred_t, emb_t=emb_t)
 
         self.train_dataset = torch.utils.data.Subset(
             self.dataset, data.train_mask.nonzero().squeeze().tolist())
