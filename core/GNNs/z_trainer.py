@@ -10,8 +10,7 @@ from core.utils.function.np_utils import save_memmap
 
 
 early_stop = 50
-
-feat_shrink = 128
+feat_shrink = ""
 
 
 class Z(torch.nn.Module):
@@ -29,13 +28,15 @@ class ZTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.penalty = 1.0
+        self.dim = feat_shrink if feat_shrink else 768
         self.epochs = 1000
-
-        self.z_ckpt = f"output/{self.dataset}/z{self.stage}.pt"
+        self.ckpt = init_path(f"output/{self.dataset}/z.emb{self.stage}")
+        self.model_ckpt = init_path(f"output/{self.dataset}/z{self.stage}.pt")
 
         # ! Load data
         data = preprocessing(self.dataset, use_text=False)
         self.data = data.to(self.device)
+        self.n_nodes = self.data.x.size(0)
 
     def _train(self):
         # ! Shared
@@ -51,7 +52,7 @@ class ZTrainer():
         loss_gnn = self.loss_func_gnn(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss0 = 0.5*self.penalty * \
-            self.l2_loss(z, (self.lm_x-self.gamma/self.penalty))
+            self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
 
         loss = loss_gnn + loss0
         loss.backward()
@@ -70,30 +71,35 @@ class ZTrainer():
             logits[self.data.test_mask], self.data.y[self.data.test_mask])
         return val_acc, test_acc, logits
 
-    def train(self):
+    def _load_data(self):
         lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}", mode='r',
-                         dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
-        lm_x = torch.Tensor(np.array(lm_x))
-        self.lm_x = lm_x.to(self.device)
-        self.model = Z(lm_x.detach().clone()).to(self.device)
+                         dtype=np.float32, shape=(self.n_nodes, self.dim))
+        self.lm_x = torch.Tensor(np.array(lm_x)).to(self.device)
 
-        self.gnn_ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
-        self.gnn = GCN(in_channels=self.lm_x.shape[1],
-                       hidden_channels=128,
+        gamma = np.memmap(f"output/{self.dataset}/gamma.emb{self.stage-1}", mode='r',
+                          dtype=np.float32, shape=(self.n_nodes, self.dim))
+        self.gamma = torch.Tensor(np.array(gamma)).to(self.device)
+
+    def _load_gnn(self):
+        gnn_ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
+        self.gnn = GCN(in_channels=self.dim,
+                       hidden_channels=self.dim,
                        out_channels=self.data.y.unique().size(0),
                        num_layers=4,
                        dropout=0.0
                        ).to(self.device)
-        self.gnn.load_state_dict(torch.load(self.gnn_ckpt))
-        gamma = np.memmap(f"output/{self.dataset}/gamma.emb{self.stage-1}", mode='r',
-                          dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
-        gamma = torch.Tensor(np.array(gamma))
-        self.gamma = gamma.to(self.device)
+        self.gnn.load_state_dict(torch.load(gnn_ckpt))
 
+    def _load_model_z(self):
         z = np.memmap(f"output/{self.dataset}/z.emb{self.stage-1}", mode='r',
-                      dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
+                      dtype=np.float32, shape=(self.n_nodes, self.dim))
         z = torch.Tensor(np.array(z))
         self.model = Z(z.detach().clone()).to(self.device)
+
+    def train(self):
+        self._load_data()
+        self._load_gnn()
+        self._load_model_z()
 
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=1e-2, weight_decay=0.0)
@@ -103,16 +109,21 @@ class ZTrainer():
 
         print(f'!!!!!Z Phase, trainable_params are {trainable_params}')
         self.stopper = EarlyStopping(
-            patience=early_stop, path=self.z_ckpt) if early_stop > 0 else None
+            patience=early_stop, path=self.model_ckpt) if early_stop > 0 else None
         self.loss_func_gnn = torch.nn.CrossEntropyLoss()
-        self.l2_loss = torch.nn.MSELoss()
+        self.mse_loss = torch.nn.MSELoss()
 
-        from core.GNNs.gnn_utils import Evaluator
+        if 'ogbn' in self.dataset:
+            from ogb.nodeproppred import Evaluator
+            self.data.y = self.data.y.squeeze()
+        else:
+            from core.GNNs.gnn_utils import Evaluator
         self._evaluator = Evaluator(name=self.dataset)
         self.evaluator = lambda pred, labels: self._evaluator.eval(
             {"y_pred": pred.argmax(dim=-1, keepdim=True),
              "y_true": labels.view(-1, 1)}
         )["acc"]
+
         # ! Training
         for epoch in range(self.epochs):
             t0, es_str = time(), ''
@@ -124,8 +135,8 @@ class ZTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
-            log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4),
-                        'Loss': round(loss, 4), 'Loss(GNN)': round(loss_gnn, 4), 'Loss0': round(loss0, 8),
+            log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
+                        'Loss(GNN)': round(loss_gnn, 4), 'Loss0': round(loss0, 8),
                         'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
                         'ES': es_str, 'GNN_epoch': epoch}
             print(log_dict)
@@ -138,16 +149,17 @@ class ZTrainer():
     @torch.no_grad()
     def eval_and_save(self):
         val_acc, test_acc, logits = self._evaluate()
-        res = {'val_acc': val_acc, 'test_acc': test_acc}
+        res = {'z_val_acc': val_acc, 'z_test_acc': test_acc}
         print(res)
+
         z = self.model()
-        save_memmap(z.cpu().numpy(), init_path(
-            f"output/{self.dataset}/z.emb{self.stage}"), dtype=np.float32)
+        save_memmap(z.cpu().numpy(), self.ckpt, dtype=np.float32)
 
     @torch.no_grad()
-    def save(self):
-        lm_x = np.memmap(f"output/{self.dataset}/bert.emb0", mode='r',
-                         dtype=np.float32, shape=(self.data.x.shape[0], feat_shrink))
+    def init(self):
+        lm_x = np.memmap(f"output/{self.dataset}/bert.emb0",
+                         mode='r',
+                         dtype=np.float32,
+                         shape=(self.n_nodes, feat_shrink if feat_shrink else 768))
 
-        save_memmap(lm_x, init_path(
-            f"output/{self.dataset}/z.emb{self.stage}"), dtype=np.float32)
+        save_memmap(lm_x, self.ckpt, dtype=np.float32)

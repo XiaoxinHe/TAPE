@@ -142,6 +142,3 @@ class KDLMTrainer():
         print(train_metrics)
         print(val_metrics)
         print(test_metrics)
-
-        # train_metrics = trainer.predict(self.dataset).metrics
-        # print(train_metrics)

@@ -53,7 +53,7 @@ class BertEmb(PreTrainedModel):
 
 
 class ADMMBert(PreTrainedModel):
-    def __init__(self, model, n_labels, pseudo_label_weight=0.5, dropout=0.0, seed=0, cla_bias=True, is_augmented=False, feat_shrink=''):
+    def __init__(self, model, n_labels, penalty=0.5, dropout=0.0, seed=0, cla_bias=True, is_augmented=False, feat_shrink=''):
         super().__init__(model.config)
         self.bert_encoder = model
         self.dropout = nn.Dropout(dropout)
@@ -67,7 +67,7 @@ class ADMMBert(PreTrainedModel):
             hidden_dim = int(feat_shrink)
         self.classifier = nn.Linear(hidden_dim, n_labels, bias=cla_bias)
         init_random_state(seed)
-        self.pl_weight = pseudo_label_weight
+        self.penalty = penalty
         self.is_augmented = is_augmented
 
     def forward(self,
@@ -94,7 +94,7 @@ class ADMMBert(PreTrainedModel):
         if self.ckpt_emb is not None:
             self.ckpt_emb[batch_nodes] = cls_token_emb.cpu().numpy()
         loss = compute_admm_loss(logits, labels, cls_token_emb, features,
-                                 gamma, penalty=self.pl_weight, is_augmented=self.is_augmented)
+                                 gamma, penalty=self.penalty, is_augmented=self.is_augmented)
         return TokenClassifierOutput(loss=loss, logits=logits)
 
 

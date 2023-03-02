@@ -1,21 +1,16 @@
-from core.GNNs.z_trainer import ZTrainer
 import argparse
-
+from core.GNNs.admm_gnn_trainer import ADMMGNNTrainer as GNNTrainer
 
 if __name__ == "__main__":
     # ! Load data and train
-    parser = argparse.ArgumentParser(description='infLM')
+    parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--stage', type=int, default=0)
     parser.add_argument('--dataset', type=str, default='cora')
     args = parser.parse_args()
 
-    print(f"\n\n[Z/{args.stage}]")
+    print(f"\n\n[GNN/{args.stage}]")
     print(args)
-
-    trainer = ZTrainer(args)
-    if args.stage > 0:
-        trainer.train()
-        trainer.eval_and_save()
-    else:
-        trainer.init()
+    trainer = GNNTrainer(args)
+    trainer.train()
+    trainer.eval_and_save()
