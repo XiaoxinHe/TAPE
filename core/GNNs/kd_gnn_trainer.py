@@ -116,7 +116,7 @@ class GNNTrainer():
     def eval_and_save(self):
         torch.save(self.model.state_dict(), self.ckpt)
         val_acc, test_acc, embs, logits = self._evaluate()
-        res = {'val_acc': val_acc, 'test_acc': test_acc}
+        res = {'gnn_val_acc': val_acc, 'gnn_test_acc': test_acc}
         print(res)
         save_memmap(logits.cpu().numpy(), self.pred, dtype=np.float32)
         save_memmap(embs.cpu().numpy(), self.emb, dtype=np.float32)

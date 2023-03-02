@@ -66,14 +66,14 @@ class KDLMTrainer():
 
         # Define Trainer
         args = TrainingArguments(
-            output_dir=f"output/{self.dataset}",
+            output_dir=f"output/{self.dataset_name}",
             do_train=True,
             do_eval=True,
             logging_steps=10,
             evaluation_strategy=IntervalStrategy.STEPS,
-            save_total_limit=5,
-            eval_steps=50,
-            save_steps=50,
+            save_total_limit=3,
+            eval_steps=20,
+            save_steps=20,
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
             num_train_epochs=5,
@@ -83,7 +83,8 @@ class KDLMTrainer():
             dataloader_num_workers=4,
             dataloader_drop_last=True,
             weight_decay=0.01,
-            metric_for_best_model='loss',
+            metric_for_best_model='accuracy',
+            greater_is_better=True
             # learning_rate=2e-5
         )
         self.trainer = Trainer(
@@ -131,9 +132,14 @@ class KDLMTrainer():
         val_metrics = trainer.predict(self.val_dataset).metrics
         test_metrics = trainer.predict(self.test_dataset).metrics
 
-        print('train: ', train_metrics)
-        print('val: ', val_metrics)
-        print('test: ', test_metrics)
+        train_metrics = {
+            'train_'+k.split('_')[-1]: v for k, v in train_metrics.items()}
+        val_metrics = {
+            'val_'+k.split('_')[-1]: v for k, v in val_metrics.items()}
+
+        print(train_metrics)
+        print(val_metrics)
+        print(test_metrics)
 
         # train_metrics = trainer.predict(self.dataset).metrics
         # print(train_metrics)
