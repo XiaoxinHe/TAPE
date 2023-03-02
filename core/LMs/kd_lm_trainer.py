@@ -65,6 +65,8 @@ class KDLMTrainer():
                 f"output/{self.dataset_name}/bert{self.stage-1}.pt"))
 
         # Define Trainer
+        eval_steps = int(self.num_nodes/32*0.2)
+        print("eval_steps: ", eval_steps)
         args = TrainingArguments(
             output_dir=f"output/{self.dataset_name}",
             do_train=True,
@@ -72,8 +74,8 @@ class KDLMTrainer():
             logging_steps=10,
             evaluation_strategy=IntervalStrategy.STEPS,
             save_total_limit=3,
-            eval_steps=20,
-            save_steps=20,
+            eval_steps=eval_steps,
+            save_steps=eval_steps,
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
             num_train_epochs=5,

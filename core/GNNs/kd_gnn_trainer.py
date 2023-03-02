@@ -1,16 +1,39 @@
+from ogb.nodeproppred import PygNodePropPredDataset
+import torch_geometric.transforms as T
+from core.utils.function.os_utils import init_path
+from core.utils.function.np_utils import save_memmap
+
 import numpy as np
 import torch
 from time import time
 from core.GNNs.GCN.model import KDGCN
 from core.utils.modules.early_stopper import EarlyStopping
-from core.preprocess import preprocessing
-from core.utils.function.os_utils import init_path
-from core.utils.function.np_utils import save_memmap
 
 
 early_stop = 50
 LOG_FREQ = 10
 feat_shrink = ""
+
+
+def load_data(dataset):
+    if 'ogbn' not in dataset:
+        from core.preprocess import preprocessing
+        data = preprocessing(dataset, use_text=False)
+    else:
+        dataset = PygNodePropPredDataset(dataset, transform=T.ToSparseTensor())
+        data = dataset[0]
+        data.edge_index = data.adj_t.to_symmetric()
+        idx_splits = dataset.get_idx_split()
+        train_mask = torch.zeros(data.x.size(0)).bool()
+        val_mask = torch.zeros(data.x.size(0)).bool()
+        test_mask = torch.zeros(data.x.size(0)).bool()
+        train_mask[idx_splits['train']] = True
+        val_mask[idx_splits['valid']] = True
+        test_mask[idx_splits['test']] = True
+        data.train_mask = train_mask
+        data.val_mask = val_mask
+        data.test_mask = test_mask
+    return data
 
 
 class GNNTrainer():
@@ -23,15 +46,14 @@ class GNNTrainer():
         self.emb = init_path(f"output/{self.dataset}/gnn.emb{self.stage}")
 
         # ! Load data
-        data = preprocessing(self.dataset, use_text=False)
+        data = load_data(self.dataset)
 
         # ! Init gnn feature
         emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
                         mode='r',
                         dtype=np.float32,
                         shape=(data.x.shape[0], feat_shrink if feat_shrink else 768))
-        emb = torch.Tensor(np.array(emb))
-        self.features = emb.to(self.device)
+        self.features = torch.Tensor(np.array(emb)).to(self.device)
         # self.features = data.x.to(self.device)
         self.data = data.to(self.device)
         self.n_labels = self.data.y.unique().size(0)
@@ -58,7 +80,11 @@ class GNNTrainer():
             patience=early_stop, path=self.ckpt) if early_stop > 0 else None
         self.loss_func = torch.nn.CrossEntropyLoss()
 
-        from core.GNNs.gnn_utils import Evaluator
+        if 'ogbn' in self.dataset:
+            from ogb.nodeproppred import Evaluator
+            data.y = data.y.squeeze()
+        else:
+            from core.GNNs.gnn_utils import Evaluator
         self._evaluator = Evaluator(name=self.dataset)
         self.evaluator = lambda pred, labels: self._evaluator.eval(
             {"y_pred": pred.argmax(dim=-1, keepdim=True),
@@ -102,7 +128,7 @@ class GNNTrainer():
                     break
             if epoch % LOG_FREQ == 0:
                 log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
-                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
+                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4),
                             'ES': es_str, 'GNN_epoch': epoch}
                 print(log_dict)
 
