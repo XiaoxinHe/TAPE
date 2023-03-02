@@ -62,6 +62,22 @@ def compute_kd_loss(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augmente
     return loss
 
 
+def compute_kd_loss2(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augmented=False):
+    if is_augmented:
+        hard_loss = F.cross_entropy(pred, labels) * (1. - pl_weight)
+        sim = F.softmax(torch.matmul(emb, emb.T), dim=-1)
+        sim_t = F.softmax(torch.matmul(emb_t, emb_t.T), dim=-1)
+        soft_loss = nn.MSELoss()(sim, sim_t)
+        return (1-pl_weight)*hard_loss + pl_weight*soft_loss
+
+    else:
+        def deal_nan(x): return 0 if torch.isnan(x) else x
+        criterion = torch.nn.CrossEntropyLoss()
+        loss = criterion(pred, labels)
+
+    return loss
+
+
 def load_data(dataset, use_text=False):
 
     if dataset == 'cora':

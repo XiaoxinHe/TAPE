@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from transformers import PreTrainedModel
 from transformers.modeling_outputs import TokenClassifierOutput
-from core.LMs.lm_utils import compute_loss, compute_admm_loss, compute_kd_loss
+from core.LMs.lm_utils import *
 from core.utils.function.os_utils import init_random_state, init_path
 
 
@@ -160,11 +160,13 @@ class KDBert(PreTrainedModel):
                 emb_t=None,
                 pred_t=None,
                 node_id=None,
-                return_dict=None):
+                return_dict=None,
+                token_type_ids=None):
         outputs = self.bert_encoder(input_ids=input_ids,
                                     attention_mask=attention_mask,
                                     return_dict=return_dict,
-                                    output_hidden_states=True)
+                                    output_hidden_states=True,
+                                    token_type_ids=token_type_ids)
         emb = self.dropout(outputs['hidden_states'][-1])
         cls_token_emb = emb.permute(1, 0, 2)[0]
         if self.feat_shrink:
@@ -179,6 +181,6 @@ class KDBert(PreTrainedModel):
         if self.ckpt_pred is not None:
             self.ckpt_pred[batch_nodes] = logits.cpu().numpy()
 
-        loss = compute_kd_loss(cls_token_emb, logits,  labels, emb_t,
-                               pred_t, pl_weight=self.pl_weight, is_augmented=self.is_augmented)
+        loss = compute_kd_loss2(cls_token_emb, logits,  labels, emb_t,
+                                pred_t, pl_weight=self.pl_weight, is_augmented=self.is_augmented)
         return TokenClassifierOutput(loss=loss, logits=logits)

@@ -9,6 +9,8 @@ from core.utils.function.np_utils import save_memmap
 
 
 early_stop = 50
+LOG_FREQ = 10
+feat_shrink = ""
 
 
 class GNNTrainer():
@@ -16,7 +18,7 @@ class GNNTrainer():
         self.device = args.device
         self.stage = args.stage
         self.dataset = args.dataset
-        self.epochs = 200
+        self.epochs = 1000
         self.pred = init_path(f"output/{self.dataset}/gnn.pred{self.stage}")
         self.emb = init_path(f"output/{self.dataset}/gnn.emb{self.stage}")
 
@@ -25,7 +27,9 @@ class GNNTrainer():
 
         # ! Init gnn feature
         emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
-                        mode='r', dtype=np.float32, shape=(data.x.shape[0], 128))
+                        mode='r',
+                        dtype=np.float32,
+                        shape=(data.x.shape[0], feat_shrink if feat_shrink else 768))
         emb = torch.Tensor(np.array(emb))
         self.features = emb.to(self.device)
         # self.features = data.x.to(self.device)
@@ -34,13 +38,13 @@ class GNNTrainer():
 
         # ! Trainer init
         self.model = KDGCN(in_channels=self.features.shape[1],
-                           hidden_channels=128,
+                           hidden_channels=feat_shrink if feat_shrink else 768,
                            out_channels=self.n_labels,
                            num_layers=4,
                            dropout=0.0).to(self.device)
-        # if self.stage > 0:
-        #     self.model.load_state_dict(torch.load(
-        #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
+        if self.stage > 0:
+            self.model.load_state_dict(torch.load(
+                f"output/{self.dataset}/GNN{self.stage-1}.pt"))
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=0.01, weight_decay=0.0)
 
@@ -96,9 +100,11 @@ class GNNTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
-            log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4), 'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
-                        'ES': es_str, 'GNN_epoch': epoch}
-            print(log_dict)
+            if epoch % LOG_FREQ == 0:
+                log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
+                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
+                            'ES': es_str, 'GNN_epoch': epoch}
+                print(log_dict)
 
         # ! Finished training, load checkpoints
         if self.stopper is not None:
