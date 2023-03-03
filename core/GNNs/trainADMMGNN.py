@@ -1,5 +1,6 @@
-import argparse
 from core.GNNs.admm_gnn_trainer import ADMMGNNTrainer as GNNTrainer
+import argparse
+
 
 if __name__ == "__main__":
     # ! Load data and train
@@ -7,6 +8,8 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--stage', type=int, default=0)
     parser.add_argument('--dataset', type=str, default='cora')
+    parser.add_argument('--dropout', type=float, default=0.0)
+
     args = parser.parse_args()
 
     print(f"\n\n[GNN/{args.stage}]")

@@ -1,11 +1,9 @@
 import numpy as np
 import torch
-from time import time
+
 from core.GNNs.GCN.model import GCN
 from core.utils.modules.early_stopper import EarlyStopping
-from core.preprocess import preprocessing
-
-
+from core.GNNs.kd_gnn_trainer import load_data
 
 early_stop = 50
 LOG_FREQ = 10
@@ -18,16 +16,18 @@ class ADMMGNNTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 1000
+        self.dim = feat_shrink if feat_shrink else 768
         self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
+        dropout = args.dropout
 
         # ! Load data
-        data = preprocessing(self.dataset, use_text=False)
+        data = load_data(self.dataset)
 
         # ! Init gnn feature
         emb = np.memmap(f'output/{self.dataset}/z.emb{self.stage-1}',
                         mode='r',
                         dtype=np.float32,
-                        shape=(data.x.shape[0], feat_shrink if feat_shrink else 768))
+                        shape=(data.x.shape[0], self.dim))
         features = torch.Tensor(np.array(emb))
         self.features = features.to(self.device)
         self.data = data.to(self.device)
@@ -35,10 +35,10 @@ class ADMMGNNTrainer():
 
         # ! Trainer init
         self.model = GCN(in_channels=self.features.shape[1],
-                           hidden_channels=feat_shrink if feat_shrink else 768,
+                           hidden_channels=self.dim,
                            out_channels=self.n_labels,
                            num_layers=4,
-                           dropout=0.0).to(self.device)
+                           dropout=dropout).to(self.device)
 
         if self.stage > 1:
             self.model.load_state_dict(torch.load(
@@ -102,7 +102,7 @@ class ADMMGNNTrainer():
                     break
             if epoch % LOG_FREQ == 0:
                 log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
-                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
+                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4),
                             'ES': es_str, 'GNN_epoch': epoch}
                 print(log_dict)
 

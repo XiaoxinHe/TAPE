@@ -67,21 +67,24 @@ class AdmmLMTrainer():
             self.model.load_state_dict(torch.load(
                 f"output/{self.dataset_name}/bert{self.stage-1}.pt"))
 
+        log_steps = int(self.num_nodes/32*0.1)
         eval_steps = int(self.num_nodes/32*0.2)
+        print("log_steps: ", log_steps)
         print("eval_steps: ", eval_steps)
+
         # Define Trainer
         args = TrainingArguments(
             output_dir=f"output/{self.dataset_name}",
             do_train=True,
             do_eval=True,
-            logging_steps=10,
+            logging_steps=log_steps,
             evaluation_strategy=IntervalStrategy.STEPS,
             save_total_limit=3,
             eval_steps=eval_steps,
             save_steps=eval_steps,
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
-            num_train_epochs=5,
+            num_train_epochs=1 if self.stage>0 else 5,
             seed=0,
             load_best_model_at_end=True,
             disable_tqdm=True,
