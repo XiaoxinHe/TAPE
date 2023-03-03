@@ -4,10 +4,9 @@ from time import time
 
 from core.GNNs.GCN.model import GCN
 from core.utils.modules.early_stopper import EarlyStopping
-from core.preprocess import preprocessing
 from core.utils.function.os_utils import init_path
 from core.utils.function.np_utils import save_memmap
-
+from core.GNNs.kd_gnn_trainer import load_data
 
 early_stop = 50
 feat_shrink = ""
@@ -34,7 +33,7 @@ class ZTrainer():
         self.model_ckpt = init_path(f"output/{self.dataset}/z{self.stage}.pt")
 
         # ! Load data
-        data = preprocessing(self.dataset, use_text=False)
+        data = load_data(self.dataset)
         self.data = data.to(self.device)
         self.n_nodes = self.data.x.size(0)
 
