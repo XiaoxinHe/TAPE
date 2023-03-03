@@ -84,7 +84,7 @@ class AdmmLMTrainer():
             save_steps=eval_steps,
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
-            num_train_epochs=1 if self.stage>0 else 5,
+            num_train_epochs=1 if self.stage > 0 else 5,
             seed=0,
             load_best_model_at_end=True,
             disable_tqdm=True,
@@ -140,6 +140,7 @@ class AdmmLMTrainer():
         val_metrics = {
             'val_'+k.split('_')[-1]: v for k, v in val_metrics.items()}
 
+        print("")
         print(train_metrics)
         print(val_metrics)
         print(test_metrics)

@@ -26,7 +26,7 @@ class ZTrainer():
         self.device = args.device
         self.stage = args.stage
         self.dataset = args.dataset
-        self.penalty = 1.0
+        self.penalty = args.penalty
         self.gnn_num_layers = args.gnn_num_layers
         self.gnn_dropout = args.gnn_dropout
 

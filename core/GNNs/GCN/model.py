@@ -9,9 +9,12 @@ class GCN(nn.Module):
                  hidden_channels,
                  out_channels,
                  num_layers,
-                 dropout=0.0):
+                 dropout=0.0,
+                 input_norm=False):
         super(GCN, self).__init__()
 
+        if input_norm:
+            self.input_norm = nn.BatchNorm1d(in_channels)
         self.convs = nn.ModuleList()
         self.convs.append(GCNConv(in_channels, hidden_channels, cached=True))
         self.bns = nn.ModuleList()
@@ -32,6 +35,8 @@ class GCN(nn.Module):
             bn.reset_parameters()
 
     def forward(self, x, adj_t):
+        if hasattr(self, 'input_norm'):
+            x = self.input_norm(x)
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, adj_t)
             x = self.bns[i](x)

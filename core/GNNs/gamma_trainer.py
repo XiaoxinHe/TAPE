@@ -14,7 +14,7 @@ class GammaTrainer():
         self.epochs = 200
         self.stage = args.stage
         self.dataset = args.dataset
-        self.penalty = 1.0
+        self.penalty = args.penalty
         self.dim = feat_shrink if feat_shrink else 768
         self.ckpt = init_path(f"output/{self.dataset}/gamma.emb{self.stage}")
 

@@ -10,6 +10,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='cora')
     parser.add_argument('--gnn_num_layers', type=int, default=2)
     parser.add_argument('--gnn_dropout', type=float, default=0.0)
+    parser.add_argument('--penalty', type=float, default=0.5)
 
     args = parser.parse_args()
 
