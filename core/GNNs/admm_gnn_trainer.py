@@ -18,7 +18,6 @@ class ADMMGNNTrainer():
         self.epochs = 1000
         self.dim = feat_shrink if feat_shrink else 768
         self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
-        dropout = args.dropout
 
         # ! Load data
         data = load_data(self.dataset)
@@ -37,8 +36,8 @@ class ADMMGNNTrainer():
         self.model = GCN(in_channels=self.features.shape[1],
                            hidden_channels=self.dim,
                            out_channels=self.n_labels,
-                           num_layers=4,
-                           dropout=dropout).to(self.device)
+                           num_layers=args.num_layers,
+                           dropout=args.dropout).to(self.device)
 
         if self.stage > 1:
             self.model.load_state_dict(torch.load(

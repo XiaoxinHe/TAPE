@@ -27,6 +27,9 @@ class ZTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.penalty = 1.0
+        self.gnn_num_layers = args.gnn_num_layers
+        self.gnn_dropout = args.gnn_dropout
+
         self.dim = feat_shrink if feat_shrink else 768
         self.epochs = 1000
         self.ckpt = init_path(f"output/{self.dataset}/z.emb{self.stage}")
@@ -84,8 +87,8 @@ class ZTrainer():
         self.gnn = GCN(in_channels=self.dim,
                        hidden_channels=self.dim,
                        out_channels=self.data.y.unique().size(0),
-                       num_layers=4,
-                       dropout=0.0
+                       num_layers=self.gnn_num_layers,
+                       dropout=self.gnn_dropout
                        ).to(self.device)
         self.gnn.load_state_dict(torch.load(gnn_ckpt))
 
