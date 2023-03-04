@@ -18,6 +18,7 @@ class AdmmLMTrainer():
         self.stage = args.stage
         self.dataset_name = args.dataset
         self.penalty = args.penalty
+        self.seed = args.seed
 
     def train(self):
         # Preprocess data
@@ -85,7 +86,7 @@ class AdmmLMTrainer():
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
             num_train_epochs=1 if self.stage > 0 else 5,
-            seed=0,
+            seed=self.seed,
             load_best_model_at_end=True,
             disable_tqdm=True,
             dataloader_num_workers=4,

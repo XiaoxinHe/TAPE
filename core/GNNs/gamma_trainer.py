@@ -1,7 +1,7 @@
+from core.GNNs.kd_gnn_trainer import load_data
 import numpy as np
 import torch
 
-from core.preprocess import preprocessing
 from core.utils.function.os_utils import init_path
 from core.utils.function.np_utils import save_memmap
 
@@ -20,7 +20,7 @@ class GammaTrainer():
 
     def update(self):
 
-        data = preprocessing(self.dataset, use_text=False)
+        data = load_data(self.dataset)
 
         if self.stage > 0:
             lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}",
