@@ -36,12 +36,14 @@ def load_data(dataset):
     return data
 
 
-class GNNTrainer():
+class KDGNNTrainer():
     def __init__(self, args):
         self.device = args.device
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 1000
+        self.dim = feat_shrink if feat_shrink else 768
+        self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
         self.pred = init_path(f"output/{self.dataset}/gnn.pred{self.stage}")
         self.emb = init_path(f"output/{self.dataset}/gnn.emb{self.stage}")
 
@@ -52,21 +54,21 @@ class GNNTrainer():
         emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
                         mode='r',
                         dtype=np.float32,
-                        shape=(data.x.shape[0], feat_shrink if feat_shrink else 768))
-        self.features = torch.Tensor(np.array(emb)).to(self.device)
-        # self.features = data.x.to(self.device)
+                        shape=(data.x.shape[0], self.dim))
+        features = torch.Tensor(np.array(emb))
+        self.features = features.to(self.device)
         self.data = data.to(self.device)
         self.n_labels = self.data.y.unique().size(0)
 
         # ! Trainer init
         self.model = KDGCN(in_channels=self.features.shape[1],
-                           hidden_channels=feat_shrink if feat_shrink else 768,
+                           hidden_channels=self.dim,
                            out_channels=self.n_labels,
-                           num_layers=4,
-                           dropout=0.0).to(self.device)
-        if self.stage > 0:
-            self.model.load_state_dict(torch.load(
-                f"output/{self.dataset}/GNN{self.stage-1}.pt"))
+                           num_layers=args.num_layers,
+                           dropout=args.dropout).to(self.device)
+        # if self.stage > 0:
+        #     self.model.load_state_dict(torch.load(
+        #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=0.01, weight_decay=0.0)
 
@@ -75,7 +77,7 @@ class GNNTrainer():
         )
 
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
-        self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
+
         self.stopper = EarlyStopping(
             patience=early_stop, path=self.ckpt) if early_stop > 0 else None
         self.loss_func = torch.nn.CrossEntropyLoss()
@@ -117,7 +119,7 @@ class GNNTrainer():
     def train(self):
         # ! Training
         for epoch in range(self.epochs):
-            t0, es_str = time(), ''
+            es_str = ''
             loss, train_acc = self._train()
             val_acc, test_acc, _, _ = self._evaluate()
             if self.stopper is not None:
