@@ -10,6 +10,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dataset', type=str, default="cora")
     parser.add_argument('--penalty', type=float, default="0.5")
+    parser.add_argument('--lr', type=float, default=5e-5)
     args = parser.parse_args()
 
     print(f"\n\n[LM/{args.stage}]")

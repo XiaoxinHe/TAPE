@@ -18,6 +18,7 @@ class AdmmLMTrainer():
         self.stage = args.stage
         self.dataset_name = args.dataset
         self.penalty = args.penalty
+        self.lr=args.lr
         self.seed = args.seed
 
     def train(self):

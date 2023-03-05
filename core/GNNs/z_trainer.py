@@ -27,6 +27,7 @@ class ZTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.penalty = args.penalty
+        self.lr = args.lr
         self.gnn_num_layers = args.gnn_num_layers
         self.gnn_dropout = args.gnn_dropout
 
@@ -104,7 +105,7 @@ class ZTrainer():
         self._load_model_z()
 
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=1e-2, weight_decay=0.0)
+            self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)
