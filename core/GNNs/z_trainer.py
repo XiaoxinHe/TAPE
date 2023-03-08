@@ -1,3 +1,4 @@
+from core.GNNs.kd_gnn_trainer import load_data
 import numpy as np
 import torch
 from time import time
@@ -6,9 +7,10 @@ from core.GNNs.GCN.model import GCN
 from core.utils.modules.early_stopper import EarlyStopping
 from core.utils.function.os_utils import init_path
 from core.utils.function.np_utils import save_memmap
-from core.GNNs.kd_gnn_trainer import load_data
+
 
 early_stop = 50
+LOG_FREQ = 10
 feat_shrink = ""
 
 
@@ -54,13 +56,16 @@ class ZTrainer():
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss_gnn = self.loss_func_gnn(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
-        loss0 = 0.5*self.penalty * \
-            self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
+        # loss0 = 0.5*self.penalty * \
+        #     self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
 
-        loss = loss_gnn + loss0
+        tmp = z-self.lm_x
+        loss0 = (self.gamma*tmp).mean()
+        loss1 = 0.5*self.penalty*(tmp**2).mean()
+        loss = loss_gnn + loss0 + loss1
         loss.backward()
         self.optimizer.step()
-        return loss.item(), loss_gnn.item(), loss0.item(),  train_acc
+        return loss.item(), loss_gnn.item(), loss0.item(), loss1.item(), train_acc
 
     @torch.no_grad()
     def _evaluate(self):
@@ -130,7 +135,7 @@ class ZTrainer():
         # ! Training
         for epoch in range(self.epochs):
             t0, es_str = time(), ''
-            loss, loss_gnn, loss0, train_acc = self._train()
+            loss, loss_gnn, loss0, loss1, train_acc = self._train()
             val_acc, test_acc, _ = self._evaluate()
             if self.stopper is not None:
                 es_flag, es_str = self.stopper.step(val_acc, self.model, epoch)
@@ -138,11 +143,12 @@ class ZTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
-            log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
-                        'Loss(GNN)': round(loss_gnn, 4), 'Loss0': round(loss0, 8),
-                        'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
-                        'ES': es_str, 'GNN_epoch': epoch}
-            print(log_dict)
+            if epoch % LOG_FREQ == 0:
+                log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
+                            'Loss(GNN)': round(loss_gnn, 4), 'Loss0': round(loss0, 8), 'Loss1': round(loss1, 8),
+                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
+                            'ES': es_str, 'GNN_epoch': epoch}
+                print(log_dict)
 
         # ! Finished training, load checkpoints
         if self.stopper is not None:

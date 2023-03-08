@@ -42,6 +42,7 @@ class KDGNNTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 1000
+        self.lr = args.lr
         self.dim = feat_shrink if feat_shrink else 768
         self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
         self.pred = init_path(f"output/{self.dataset}/gnn.pred{self.stage}")
@@ -70,7 +71,7 @@ class KDGNNTrainer():
         #     self.model.load_state_dict(torch.load(
         #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=0.01, weight_decay=0.0)
+            self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
         trainable_params = sum(
             p.numel() for p in self.model.parameters() if p.requires_grad

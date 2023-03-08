@@ -9,7 +9,7 @@ from core.utils.function.np_utils import save_memmap
 
 
 early_stop = 50
-
+feat_shrink = ""
 
 class GNNTrainer():
     def __init__(self, args):
@@ -17,6 +17,9 @@ class GNNTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 200
+        self.num_layers = args.num_layers
+        self.dropout = args.dropout
+        self.dim = feat_shrink if feat_shrink else 768
         self.pred = init_path(f"output/{self.dataset}/gnn.pred{self.stage}")
         self.emb = init_path(f"output/{self.dataset}/gnn.emb{self.stage}")
 
@@ -24,12 +27,12 @@ class GNNTrainer():
         data = preprocessing(self.dataset, use_text=False)
 
         # ! Init gnn feature
-        # emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
-        #                 mode='r', dtype=np.float32, shape=(data.x.shape[0], 128))
-        # emb = torch.Tensor(np.array(emb))
-        # self.features = emb.to(self.device)
+        emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
+                        mode='r', dtype=np.float32, shape=(data.x.shape[0], 768))
+        emb = torch.Tensor(np.array(emb))
+        self.features = emb.to(self.device)
 
-        self.features = data.x.to(self.device)
+        # self.features = data.x.to(self.device)
         self.data = data
 
         self.n_nodes = self.data.x.size(0)
@@ -38,10 +41,10 @@ class GNNTrainer():
         self.data = data.to(self.device)
         # ! Trainer init
         self.model = KDGCN(in_channels=self.features.shape[1],
-                           hidden_channels=128,
+                           hidden_channels=self.dim,
                            out_channels=self.n_labels,
-                           num_layers=4,
-                           dropout=0.0).to(self.device)
+                           num_layers=self.num_layers,
+                           dropout=self.dropout).to(self.device)
         # if self.stage > 0:
         #     self.model.load_state_dict(torch.load(
         #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
@@ -65,36 +68,64 @@ class GNNTrainer():
              "y_true": labels.view(-1, 1)}
         )["acc"]
 
-    def _prune_graph(self):
-        print("pruning graph")
-        print(self.data)
-        gnn_emb = np.memmap(f'output/cora/gnn.emb0', mode='r',
-                            dtype=np.float32, shape=(self.n_nodes, 128))
-        gnn_emb = torch.Tensor(np.array(gnn_emb))
-        gnn_emb = gnn_emb/torch.norm(gnn_emb, dim=-1, keepdim=True)
-        gnn_sim = torch.matmul(gnn_emb, gnn_emb.T)
+    # def _prune_graph(self):
+    #     print("pruning graph")
+    #     print(self.data)
+    #     gnn_emb = np.memmap(f'output/cora/gnn.emb0', mode='r',
+    #                         dtype=np.float32, shape=(self.n_nodes, 128))
+    #     gnn_emb = torch.Tensor(np.array(gnn_emb))
+    #     gnn_emb = gnn_emb/torch.norm(gnn_emb, dim=-1, keepdim=True)
+    #     gnn_sim = torch.matmul(gnn_emb, gnn_emb.T)
 
-        emb = np.memmap(f'output/cora/bert.emb0', mode='r',
-                        dtype=np.float32, shape=(self.n_nodes, 128))
-        emb = torch.Tensor(np.array(emb))
-        emb = emb/torch.norm(emb, dim=-1, keepdim=True)
-        sim = torch.matmul(emb, emb.T)
+    #     emb = np.memmap(f'output/cora/bert.emb0', mode='r',
+    #                     dtype=np.float32, shape=(self.n_nodes, 128))
+    #     emb = torch.Tensor(np.array(emb))
+    #     emb = emb/torch.norm(emb, dim=-1, keepdim=True)
+    #     sim = torch.matmul(emb, emb.T)
         
+    #     adj = torch.zeros(self.n_nodes, self.n_nodes).bool()
+    #     adj[self.data.edge_index[0], self.data.edge_index[1]] = True
+
+    #     _, indices = torch.topk(
+    #         (gnn_sim-sim).view(-1), k=int(self.n_nodes**2 * 0.01))
+    #     row, col = indices//self.n_nodes, indices % self.n_nodes
+    #     adj[row, col] = False
+
+    #     # _, indices = torch.topk(
+    #     #     (sim-gnn_sim).view(-1), k=int(self.data.edge_index.size(1) * 0.2))
+    #     # row, col = indices//self.n_nodes, indices % self.n_nodes
+    #     # adj[row, col] = True
+
+    #     self.data.edge_index = adj.nonzero().T
+    #     print(self.data)
+    
+    
+    def _prune_graph(self):
+        src, dst = self.data.edge_index
         adj = torch.zeros(self.n_nodes, self.n_nodes).bool()
         adj[self.data.edge_index[0], self.data.edge_index[1]] = True
 
-        _, indices = torch.topk(
-            (gnn_sim-sim).view(-1), k=int(self.n_nodes**2 * 0.01))
-        row, col = indices//self.n_nodes, indices % self.n_nodes
-        adj[row, col] = False
+        emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
+                        mode='r',
+                        dtype=np.float32,
+                        shape=(self.data.x.shape[0], 768))
+        features = torch.Tensor(np.array(emb))
+        sim = torch.matmul(features, features.T)
 
-        # _, indices = torch.topk(
-        #     (sim-gnn_sim).view(-1), k=int(self.data.edge_index.size(1) * 0.2))
-        # row, col = indices//self.n_nodes, indices % self.n_nodes
-        # adj[row, col] = True
-
+        edge_sim = sim[src, dst]
+        num_edges = self.data.edge_index.size(1)
+        n_remove = int(0.01*num_edges)
+        sampled = torch.randperm(n_remove)[:n_remove]
+        print("num_edges: ", self.data.edge_index.size(1))
+        print(f"delete: {n_remove} edges")
+        _, indices = torch.topk(-edge_sim, k=n_remove)
+        
+        indices = indices[sampled]
+        src, dst = self.data.edge_index
+        adj[src[indices], dst[indices]] = False
         self.data.edge_index = adj.nonzero().T
         print(self.data)
+
 
     def _train(self):
         self.model.train()

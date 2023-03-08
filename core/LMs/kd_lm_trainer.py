@@ -1,9 +1,9 @@
 import torch
 import numpy as np
 from core.utils.data.dataset import KDDataset
-from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer
+from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, AutoModelForMaskedLM
 from transformers import EarlyStoppingCallback, IntervalStrategy
-from core.LMs.model import KDBert
+from core.LMs.model import KDBert, InfModel
 
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
@@ -18,11 +18,14 @@ class KDLMTrainer():
         self.stage = args.stage
         self.dataset_name = args.dataset
         self.pl_weight = args.pl_weight
+        self.lr = args.lr
 
     def train(self):
         # Preprocess data
         data, text = load_data(dataset=self.dataset_name, use_text=True)
+        self.data = data
         self.num_nodes = data.x.shape[0]
+        self.dim = feat_shrink if feat_shrink else 768
         self.n_labels = data.y.unique().size(0)
         pred_t = None
         emb_t = None
@@ -36,7 +39,7 @@ class KDLMTrainer():
             emb_t = np.memmap(f'output/{self.dataset_name}/gnn.emb{self.stage-1}',
                               mode='r',
                               dtype=np.float32,
-                              shape=(self.num_nodes, feat_shrink if feat_shrink else 768))
+                              shape=(self.num_nodes, self.dim))
             emb_t = torch.Tensor(np.array(emb_t))
 
         # Define pretrained tokenizer and model
@@ -80,16 +83,17 @@ class KDLMTrainer():
             save_steps=eval_steps,
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
-            num_train_epochs=1 if self.stage>0 else 5,
+            num_train_epochs=1 if self.stage > 0 else 5,
             seed=0,
             load_best_model_at_end=True,
             disable_tqdm=True,
             dataloader_num_workers=4,
             dataloader_drop_last=True,
             weight_decay=0.01,
-            metric_for_best_model='accuracy',
-            greater_is_better=True
-            # learning_rate=2e-5
+            metric_for_best_model='loss',
+            greater_is_better=False,
+            # report_to="wandb"
+            learning_rate=self.lr
         )
         self.trainer = Trainer(
             model=self.model,
@@ -103,44 +107,49 @@ class KDLMTrainer():
         # Train pre-trained model
         self.trainer.train()
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def eval_and_save(self):
-        torch.save(self.model.state_dict(), init_path(
-            f"output/{self.dataset_name}/bert{self.stage}.pt"))
-
-        self.model.ckpt_emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
-                                        dtype=np.float32,
-                                        mode='w+',
-                                        shape=(self.num_nodes, feat_shrink if feat_shrink else 768))
-        self.model.ckpt_pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
-                                         dtype=np.float32,
-                                         mode='w+',
-                                         shape=(self.num_nodes, self.n_labels))
-
-        # Define Trainer
-        args = TrainingArguments(
-            output_dir="output",
+        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
+                        dtype=np.float32,
+                        mode='w+',
+                        shape=(self.num_nodes, self.dim))
+        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
+                         dtype=np.float32,
+                         mode='w+',
+                         shape=(self.num_nodes, self.n_labels))
+        inf_model = InfModel(self.model, emb, pred,
+                             feat_shrink=feat_shrink)  # .to(self.cf.device)
+        inf_model.eval()
+        inference_args = TrainingArguments(
+            output_dir=f'output/',
             do_train=False,
             do_predict=True,
-            per_device_eval_batch_size=8*8,
+            per_device_eval_batch_size=64,
             dataloader_drop_last=False,
             dataloader_num_workers=1,
+            fp16_full_eval=False,
             disable_tqdm=True,
         )
 
-        trainer = Trainer(model=self.model,
-                          args=args,
-                          compute_metrics=compute_metrics)
+        trainer = Trainer(model=inf_model, args=inference_args)
+        trainer.predict(self.dataset)
+        if "ogbn" in self.dataset_name:
+            from ogb.nodeproppred import Evaluator
+            _evaluator = Evaluator(name=self.dataset_name)
+        else:
+            from core.GNNs.gnn_utils import Evaluator
+            _evaluator = Evaluator(name=self.dataset_name)
 
-        train_metrics = trainer.predict(self.train_dataset).metrics
-        val_metrics = trainer.predict(self.val_dataset).metrics
-        test_metrics = trainer.predict(self.test_dataset).metrics
+        def evaluator(preds, labels): return _evaluator.eval({
+            "y_true": torch.tensor(labels).view(-1, 1),
+            "y_pred": torch.tensor(preds).view(-1, 1),
+        })["acc"]
 
-        train_metrics = {
-            'train_'+k.split('_')[-1]: v for k, v in train_metrics.items()}
-        val_metrics = {
-            'val_'+k.split('_')[-1]: v for k, v in val_metrics.items()}
+        def eval(x): return evaluator(
+            np.argmax(pred[x], -1), self.data.y[x])
 
-        print(train_metrics)
-        print(val_metrics)
-        print(test_metrics)
+        res = {
+            'train_acc': eval(self.data.train_mask),
+            'val_acc': eval(self.data.val_mask),
+            'test_acc': eval(self.data.test_mask)}
+        print(res)

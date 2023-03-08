@@ -9,7 +9,8 @@ if __name__ == "__main__":
     parser.add_argument('--stage', type=int, default=0)
     parser.add_argument('--dataset', type=str, default='cora')
     parser.add_argument('--dropout', type=float, default=0.0)
-    parser.add_argument('--num_layers', type=int, default=4)
+    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--num_layers', type=int, default=2)
     args = parser.parse_args()
 
     print(f"\n\n[GNN/{args.stage}]")

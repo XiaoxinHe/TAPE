@@ -1,9 +1,12 @@
+from core.GNNs.kd_gnn_trainer import load_data
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 from core.GNNs.GCN.model import GCN
 from core.utils.modules.early_stopper import EarlyStopping
-from core.GNNs.kd_gnn_trainer import load_data
+
 
 early_stop = 50
 LOG_FREQ = 10
@@ -16,6 +19,7 @@ class ADMMGNNTrainer():
         self.stage = args.stage
         self.dataset = args.dataset
         self.epochs = 1000
+        self.lr = args.lr
         self.dim = feat_shrink if feat_shrink else 768
         self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
 
@@ -27,10 +31,15 @@ class ADMMGNNTrainer():
                         mode='r',
                         dtype=np.float32,
                         shape=(data.x.shape[0], self.dim))
-        features = torch.Tensor(np.array(emb))
-        self.features = features.to(self.device)
+        self.features = torch.Tensor(np.array(emb)).to(self.device)
         self.data = data.to(self.device)
         self.n_labels = self.data.y.unique().size(0)
+
+        # pred = np.memmap(f'output/{self.dataset}/bert.pred{self.stage-1}',
+        #                 mode='r',
+        #                 dtype=np.float32,
+        #                 shape=(data.x.shape[0], self.n_labels))
+        # self.lm_pred = torch.Tensor(np.array(pred)).to(self.device)
 
         # ! Trainer init
         self.model = GCN(in_channels=self.features.shape[1],
@@ -43,7 +52,7 @@ class ADMMGNNTrainer():
         #     self.model.load_state_dict(torch.load(
         #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=0.01, weight_decay=0.0)
+            self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)
@@ -65,6 +74,8 @@ class ADMMGNNTrainer():
         )["acc"]
 
     def _train(self):
+        # T = 1
+        # pl_weight = 1
         self.model.train()
         self.optimizer.zero_grad()
         logits = self.model(self.features, self.data.edge_index)
@@ -72,6 +83,10 @@ class ADMMGNNTrainer():
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         train_acc = self.evaluator(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
+        # tmp_mask = self.data.val_mask | self.data.test_mask
+        # soft_loss = nn.KLDivLoss()(F.log_softmax(logits[tmp_mask]/T, dim=1), F.softmax(self.lm_pred[tmp_mask]/T, dim=1)) * (pl_weight * T * T)
+        # soft_loss=torch.mean((logits[tmp_mask]-self.lm_pred[tmp_mask])**2)
+        # loss =hard_loss + soft_loss
         loss.backward()
         self.optimizer.step()
 

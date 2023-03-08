@@ -33,9 +33,10 @@ def compute_loss(logits, labels, emb, pesudo_emb, pl_weight=0.5, is_augmented=Fa
 
 def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_augmented=False):
     if is_augmented:
-        mse_loss = torch.nn.MSELoss()
-        loss = 0.5*penalty*mse_loss(emb, pesudo_emb+gamma/penalty)
-        # loss = l2_loss(emb, pesudo_emb+gamma/penalty)
+        # mse_loss = torch.nn.MSELoss()
+        # loss = 0.5*penalty*mse_loss(emb, pesudo_emb+gamma/penalty)
+        tmp = pesudo_emb-emb
+        loss = (gamma*tmp).mean() + 0.5*penalty*((tmp**2).mean())
     else:
         cross_entropy = torch.nn.CrossEntropyLoss()
         loss = cross_entropy(logits, labels)
@@ -43,8 +44,9 @@ def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_au
 
 
 def compute_kd_loss(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augmented=False, T=1):
+    cross_entropy = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
     if is_augmented:
-        hard_loss = F.cross_entropy(pred, labels) * (1. - pl_weight)
+        hard_loss = cross_entropy(pred, labels) * (1. - pl_weight)
         dis_loss = nn.KLDivLoss()(F.log_softmax(pred/T, dim=1),
                                   F.softmax(pred_t/T, dim=1)) * (pl_weight * T * T)
 
@@ -53,27 +55,34 @@ def compute_kd_loss(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augmente
         # print(hard_loss.item(), soft_loss.item())
         loss = hard_loss + dis_loss + cos_loss
     else:
-        def deal_nan(x): return 0 if torch.isnan(x) else x
-        criterion = torch.nn.CrossEntropyLoss()
-        loss = deal_nan(criterion(pred, labels))
+        loss = cross_entropy(pred, labels)
 
     return loss
 
 
 def compute_kd_loss2(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augmented=False):
     if is_augmented:
-        hard_loss = F.cross_entropy(pred, labels) * (1. - pl_weight)
-        sim = F.softmax(torch.matmul(emb, emb.T), dim=-1)
-        sim_t = F.softmax(torch.matmul(emb_t, emb_t.T), dim=-1)
-        soft_loss = nn.MSELoss()(sim, sim_t)
-        return (1-pl_weight)*hard_loss + pl_weight*soft_loss
+        hard_loss = F.cross_entropy(pred, labels)
+        # sim = F.softmax(torch.matmul(emb, emb.T), dim=-1)
+        # sim_t = F.softmax(torch.matmul(emb_t, emb_t.T), dim=-1)
+        # sim = torch.matmul(emb, emb.T)
+        # sim_t = torch.matmul(emb_t, emb_t.T)
+        # loss_relative_sim = torch.mean((sim-sim_t)**2)
+
+        loss_soft_label = nn.KLDivLoss(reduction="batchmean", log_target=True)(
+            pred.log_softmax(dim=1), pred_t.log_softmax(dim=1))
+        loss_relative_sim = (
+            1 - nn.CosineSimilarity(dim=-1)(emb, emb_t)).mean()
+
+        # print(hard_loss.item(), loss_soft_label.item(), loss_relative_sim.item())
+        # return hard_loss + loss_soft_label + loss_relative_sim
+        # print(hard_loss.item(), loss_soft_label.item())
+        return hard_loss+loss_soft_label+loss_relative_sim
 
     else:
-        def deal_nan(x): return 0 if torch.isnan(x) else x
         criterion = torch.nn.CrossEntropyLoss()
         loss = criterion(pred, labels)
-
-    return loss
+        return loss
 
 
 def load_data(dataset, use_text=False):

@@ -1,5 +1,5 @@
 import argparse
-from core.LMs.kd_lm_trainer import KDLMTrainer as LMTrainer
+from core.LMs.admm_lm_classifier_trainer import AdmmLMTrainer
 
 
 if __name__ == "__main__":
@@ -7,14 +7,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='infLM')
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--stage', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dataset', type=str, default="cora")
-    parser.add_argument('--pl_weight', type=float, default=0.5)
+    parser.add_argument('--penalty', type=float, default="0.5")
     parser.add_argument('--lr', type=float, default=5e-5)
-
     args = parser.parse_args()
-    print(f"\n\n[LM/{args.stage}]")
+
+    print(f"\n\n[LMClassifier/{args.stage}]")
     print(args)
-    trainer = LMTrainer(args)
+    trainer = AdmmLMTrainer(args)
 
     # ! Load data and train
     trainer.train()
