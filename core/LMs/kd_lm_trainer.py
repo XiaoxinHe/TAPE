@@ -93,7 +93,7 @@ class KDLMTrainer():
             metric_for_best_model='loss',
             greater_is_better=False,
             # report_to="wandb"
-            learning_rate=self.lr
+            learning_rate=self.lr if self.stage > 0 else 5e-5
         )
         self.trainer = Trainer(
             model=self.model,
@@ -106,6 +106,8 @@ class KDLMTrainer():
 
         # Train pre-trained model
         self.trainer.train()
+        torch.save(self.model.state_dict(), init_path(
+            f"output/{self.dataset_name}/bert{self.stage}.pt"))
 
     @torch.no_grad()
     def eval_and_save(self):

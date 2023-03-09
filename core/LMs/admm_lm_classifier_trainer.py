@@ -83,8 +83,8 @@ class AdmmLMTrainer():
             dataloader_num_workers=4,
             dataloader_drop_last=True,
             weight_decay=0.01,
-            metric_for_best_model='accuracy',
-            greater_is_better=True
+            metric_for_best_model='loss',
+            greater_is_better=False
             # learning_rate=2e-5
         )
         self.trainer = Trainer(
