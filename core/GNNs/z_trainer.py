@@ -35,8 +35,8 @@ class ZTrainer():
 
         self.dim = feat_shrink if feat_shrink else 768
         self.epochs = 1000
-        self.ckpt = init_path(f"output/{self.dataset}/z.emb{self.stage}")
-        self.model_ckpt = init_path(f"output/{self.dataset}/z{self.stage}.pt")
+        self.ckpt = init_path(f"output/{self.dataset}/z.emb")
+        self.model_ckpt = init_path(f"output/{self.dataset}/z.pt")
 
         # ! Load data
         data = load_data(self.dataset)
@@ -80,16 +80,16 @@ class ZTrainer():
         return val_acc, test_acc, logits
 
     def _load_data(self):
-        lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}", mode='r',
+        lm_x = np.memmap(f"output/{self.dataset}/bert.emb", mode='r',
                          dtype=np.float32, shape=(self.n_nodes, self.dim))
         self.lm_x = torch.Tensor(np.array(lm_x)).to(self.device)
 
-        gamma = np.memmap(f"output/{self.dataset}/gamma.emb{self.stage-1}", mode='r',
+        gamma = np.memmap(f"output/{self.dataset}/gamma.emb", mode='r',
                           dtype=np.float32, shape=(self.n_nodes, self.dim))
         self.gamma = torch.Tensor(np.array(gamma)).to(self.device)
 
     def _load_gnn(self):
-        gnn_ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
+        gnn_ckpt = f"output/{self.dataset}/GNN.pt"
         self.gnn = GCN(in_channels=self.dim,
                        hidden_channels=self.dim,
                        out_channels=self.data.y.unique().size(0),
@@ -99,8 +99,8 @@ class ZTrainer():
         self.gnn.load_state_dict(torch.load(gnn_ckpt))
 
     def _load_model_z(self):
-        z = np.memmap(f"output/{self.dataset}/z.emb{self.stage-1}", mode='r',
-                      dtype=np.float32, shape=(self.n_nodes, self.dim))
+        z = np.memmap(self.ckpt, mode='r', dtype=np.float32,
+                      shape=(self.n_nodes, self.dim))
         z = torch.Tensor(np.array(z))
         self.model = Z(z.detach().clone()).to(self.device)
 

@@ -16,25 +16,25 @@ class GammaTrainer():
         self.dataset = args.dataset
         self.penalty = args.penalty
         self.dim = feat_shrink if feat_shrink else 768
-        self.ckpt = init_path(f"output/{self.dataset}/gamma.emb{self.stage}")
+        self.ckpt = init_path(f"output/{self.dataset}/gamma.emb")
 
     def update(self):
 
         data = load_data(self.dataset)
 
         if self.stage > 0:
-            lm_x = np.memmap(f"output/{self.dataset}/bert.emb{self.stage}",
+            lm_x = np.memmap(f"output/{self.dataset}/bert.emb",
                              mode='r',
                              dtype=np.float32,
                              shape=(data.x.shape[0], self.dim))
             lm_x = torch.Tensor(np.array(lm_x))
-            z = np.memmap(f"output/{self.dataset}/z.emb{self.stage}",
+            z = np.memmap(f"output/{self.dataset}/z.emb",
                           mode='r',
                           dtype=np.float32,
                           shape=(data.x.shape[0], self.dim))
             z = torch.Tensor(np.array(z))
 
-            gamma = np.memmap(f"output/{self.dataset}/gamma.emb{self.stage-1}",
+            gamma = np.memmap(f"output/{self.dataset}/gamma.emb",
                               mode='r',
                               dtype=np.float32,
                               shape=(data.x.shape[0], self.dim))

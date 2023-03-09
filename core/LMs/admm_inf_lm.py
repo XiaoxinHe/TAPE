@@ -7,8 +7,7 @@ from transformers import EarlyStoppingCallback, IntervalStrategy
 from core.LMs.model import ADMMBert, InfModel
 
 from core.LMs.lm_utils import load_data
-from core.LMs.lm_utils import compute_metrics
-from core.utils.function.os_utils import init_path
+from core.utils.function.os_utils import init_path, time_logger
 
 feat_shrink = ""
 
@@ -20,7 +19,8 @@ class AdmmInfLMTrainer():
         self.dataset_name = args.dataset
         self.seed = args.seed
         self.dim = feat_shrink if feat_shrink else 768
-        self.path = args.path if args.path else f"output/{self.dataset_name}/bert{self.stage}.pt"
+        self.prefix = "output" if self.stage > 0 else "prt_lm"
+        self.ckpt = f"{self.prefix}/{self.dataset_name}/bert.pt"
 
         if "ogbn" in self.dataset_name:
             from ogb.nodeproppred import Evaluator
@@ -38,11 +38,11 @@ class AdmmInfLMTrainer():
         self.num_nodes = data.x.shape[0]
         self.n_labels = data.y.unique().size(0)
 
-        self.emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
+        self.emb = np.memmap(init_path(f"{self.prefix}/{self.dataset_name}/bert.emb"),
                              dtype=np.float32,
                              mode='w+',
                              shape=(self.num_nodes, self.dim))
-        self.pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
+        self.pred = np.memmap(init_path(f"{self.prefix}/{self.dataset_name}/bert.pred"),
                               dtype=np.float32,
                               mode='w+',
                               shape=(self.num_nodes, self.n_labels))
@@ -64,13 +64,13 @@ class AdmmInfLMTrainer():
                               n_labels=data.y.unique().size(0),
                               is_augmented=self.stage > 0,
                               feat_shrink=feat_shrink)
-        
-        print(f"loading model from {self.path}")
-        self.model.load_state_dict(torch.load(self.path))
 
+        print(f"loading model from {self.ckpt}")
+        self.model.load_state_dict(torch.load(self.ckpt))
+
+    @time_logger
     @torch.no_grad()
     def inference_pred_and_emb(self):
-        # torch.cuda.empty_cache()
         inf_model = InfModel(
             self.model, self.emb, self.pred, feat_shrink=feat_shrink)  # .to(self.cf.device)
         inf_model.eval()
