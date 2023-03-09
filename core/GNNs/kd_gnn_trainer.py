@@ -107,7 +107,7 @@ class KDGNNTrainer():
 
         return loss.item(), train_acc
 
-    @ torch.no_grad()
+    @torch.no_grad()
     def _evaluate(self):
         self.model.eval()
         embs, logits = self.model(self.features, self.data.edge_index)

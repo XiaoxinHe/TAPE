@@ -1,13 +1,13 @@
 import torch
 import numpy as np
 from core.utils.data.dataset import KDDataset
-from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, AutoModelForMaskedLM
+from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer
 from transformers import EarlyStoppingCallback, IntervalStrategy
 from core.LMs.model import KDBert, InfModel
 
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
-from core.utils.function.os_utils import init_path
+from core.utils.function.os_utils import init_path, time_logger
 
 feat_shrink = ""
 
@@ -20,6 +20,7 @@ class KDLMTrainer():
         self.pl_weight = args.pl_weight
         self.lr = args.lr
 
+    @time_logger
     def train(self):
         # Preprocess data
         data, text = load_data(dataset=self.dataset_name, use_text=True)
@@ -78,7 +79,7 @@ class KDLMTrainer():
             do_eval=True,
             logging_steps=log_steps,
             evaluation_strategy=IntervalStrategy.STEPS,
-            save_total_limit=3,
+            save_total_limit=1,
             eval_steps=eval_steps,
             save_steps=eval_steps,
             per_device_train_batch_size=8,
@@ -109,6 +110,7 @@ class KDLMTrainer():
         torch.save(self.model.state_dict(), init_path(
             f"output/{self.dataset_name}/bert{self.stage}.pt"))
 
+    @time_logger
     @torch.no_grad()
     def eval_and_save(self):
         emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
