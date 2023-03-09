@@ -133,7 +133,7 @@ class AdmmLMTrainer():
             do_predict=True,
             per_device_eval_batch_size=64,
             dataloader_drop_last=False,
-            dataloader_num_workers=1,
+            dataloader_num_workers=4,
             fp16_full_eval=False,
             disable_tqdm=True,
         )

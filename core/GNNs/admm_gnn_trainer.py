@@ -35,12 +35,6 @@ class ADMMGNNTrainer():
         self.data = data.to(self.device)
         self.n_labels = self.data.y.unique().size(0)
 
-        # pred = np.memmap(f'output/{self.dataset}/bert.pred{self.stage-1}',
-        #                 mode='r',
-        #                 dtype=np.float32,
-        #                 shape=(data.x.shape[0], self.n_labels))
-        # self.lm_pred = torch.Tensor(np.array(pred)).to(self.device)
-
         # ! Trainer init
         self.model = GCN(in_channels=self.features.shape[1],
                            hidden_channels=self.dim,
@@ -74,8 +68,6 @@ class ADMMGNNTrainer():
         )["acc"]
 
     def _train(self):
-        # T = 1
-        # pl_weight = 1
         self.model.train()
         self.optimizer.zero_grad()
         logits = self.model(self.features, self.data.edge_index)
@@ -83,13 +75,8 @@ class ADMMGNNTrainer():
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         train_acc = self.evaluator(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
-        # tmp_mask = self.data.val_mask | self.data.test_mask
-        # soft_loss = nn.KLDivLoss()(F.log_softmax(logits[tmp_mask]/T, dim=1), F.softmax(self.lm_pred[tmp_mask]/T, dim=1)) * (pl_weight * T * T)
-        # soft_loss=torch.mean((logits[tmp_mask]-self.lm_pred[tmp_mask])**2)
-        # loss =hard_loss + soft_loss
         loss.backward()
         self.optimizer.step()
-
         return loss.item(), train_acc
 
     @ torch.no_grad()
