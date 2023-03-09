@@ -21,6 +21,8 @@ class AdmmLMTrainer():
         self.lr = args.lr
         self.seed = args.seed
         self.dim = feat_shrink if feat_shrink else 768
+        self.prefix = "output" if self.stage > 0 else "prt_lm"
+        self.ckpt = f"{self.prefix}/{self.dataset_name}/bert.pt"
 
     @time_logger
     def train(self):
@@ -33,13 +35,13 @@ class AdmmLMTrainer():
         gamma = None
 
         if self.stage > 0:
-            emb = np.memmap(f'output/{self.dataset_name}/z.emb{self.stage-1}',
+            emb = np.memmap(f'{self.prefix}/{self.dataset_name}/z.emb',
                             mode='r',
                             dtype=np.float32,
                             shape=(self.num_nodes, self.dim))
             emb = torch.Tensor(np.array(emb))
 
-            gamma = np.memmap(f'output/{self.dataset_name}/gamma.emb{self.stage-1}',
+            gamma = np.memmap(f'{self.prefix}/{self.dataset_name}/gamma.emb',
                               mode='r',
                               dtype=np.float32,
                               shape=(self.num_nodes, self.dim))
@@ -70,7 +72,7 @@ class AdmmLMTrainer():
 
         if self.stage > 0:
             self.model.load_state_dict(torch.load(
-                f"output/{self.dataset_name}/bert{self.stage-1}.pt"))
+                f"{self.prefix}/{self.dataset_name}/bert.pt"))
 
         log_steps = int(self.num_nodes/32*0.1)
         eval_steps = int(self.num_nodes/32*0.2)
@@ -111,16 +113,15 @@ class AdmmLMTrainer():
 
         # Train pre-trained model
         self.trainer.train()
-        torch.save(self.model.state_dict(), init_path(
-            f"output/{self.dataset_name}/bert{self.stage}.pt"))
+        torch.save(self.model.state_dict(), init_path(self.ckpt))
 
     @torch.no_grad()
     def eval_and_save(self):
-        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
+        emb = np.memmap(init_path(f"{self.prefix}/{self.dataset_name}/bert.emb"),
                         dtype=np.float32,
                         mode='w+',
                         shape=(self.num_nodes, self.dim))
-        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
+        pred = np.memmap(init_path(f"{self.prefix}/{self.dataset_name}/bert.pred"),
                          dtype=np.float32,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))
