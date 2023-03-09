@@ -59,7 +59,7 @@ class ADMMBert(PreTrainedModel):
             self.ckpt_pred[batch_nodes] = logits.cpu().numpy()
 
         loss = compute_loss(logits, labels, cls_token_emb, features,
-                                 gamma, penalty=self.penalty, is_augmented=self.is_augmented)
+                            gamma, penalty=self.penalty, is_augmented=self.is_augmented)
         return TokenClassifierOutput(loss=loss, logits=logits)
 
 
@@ -70,8 +70,6 @@ class ADMMBert(PreTrainedModel):
         self.dropout = nn.Dropout(dropout)
         self.feat_shrink = feat_shrink
         hidden_dim = model.config.hidden_size
-        self.ckpt_emb = None
-        self.ckpt_pred = None
 
         # Freeze the BERT model
         if freeze_bert:
@@ -106,12 +104,6 @@ class ADMMBert(PreTrainedModel):
         logits = self.classifier(cls_token_emb)
         if labels.shape[-1] == 1:
             labels = labels.squeeze()
-
-        batch_nodes = node_id.cpu().numpy()
-        if self.ckpt_emb is not None:
-            self.ckpt_emb[batch_nodes] = cls_token_emb.cpu().numpy()
-        if self.ckpt_pred is not None:
-            self.ckpt_pred[batch_nodes] = logits.cpu().numpy()
 
         loss = compute_admm_loss(logits, labels, cls_token_emb, features,
                                  gamma, penalty=self.penalty, is_augmented=self.is_augmented)

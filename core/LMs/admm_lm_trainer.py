@@ -64,7 +64,7 @@ class AdmmLMTrainer():
 
         self.model = ADMMBert(bert_model,
                               penalty=self.penalty,
-                              n_labels=data.y.unique().size(0),
+                              n_labels=self.n_labels,
                               is_augmented=self.stage > 0,
                               feat_shrink=feat_shrink)
 
@@ -84,7 +84,7 @@ class AdmmLMTrainer():
             do_eval=True,
             logging_steps=log_steps,
             evaluation_strategy=IntervalStrategy.STEPS,
-            save_total_limit=3,
+            save_total_limit=1,
             eval_steps=eval_steps,
             save_steps=eval_steps,
             per_device_train_batch_size=8,
@@ -116,21 +116,6 @@ class AdmmLMTrainer():
 
     @torch.no_grad()
     def eval_and_save(self):
-        # train_metrics = self.trainer.predict(self.train_dataset).metrics
-        # val_metrics = self.trainer.predict(self.val_dataset).metrics
-        # test_metrics = self.trainer.predict(self.test_dataset).metrics
-
-        # train_metrics = {
-        #     'train_'+k.split('_')[-1]: v for k, v in train_metrics.items()}
-        # val_metrics = {
-        #     'val_'+k.split('_')[-1]: v for k, v in val_metrics.items()}
-
-        # print("")
-        # print(train_metrics)
-        # print(val_metrics)
-        # print(test_metrics)
-
-        # torch.cuda.empty_cache()
         emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
                         dtype=np.float32,
                         mode='w+',
