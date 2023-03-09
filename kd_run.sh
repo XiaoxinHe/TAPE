@@ -1,46 +1,57 @@
 # !/bin/bash
 NUM_STAGE=5
-NUM_LAYERS=2
-PL_WEIGHT=0.5
+RUNS=4
 
 DATASET='cora'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
-NUM_LAYERS=2
 DROPOUT=0.0
-for ((i = 0; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.LMs.trainKDLM --stage $i --pl_weight $PL_WEIGHT --dataset $DATASET >> kd/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> kd/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  mkdir -p log/$LOG_PATH
+  python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    sleep 1
+    python -m core.LMs.trainKDLM --stage $i --dataset $DATASET --seed $seed >> $LOG_PATH ;
+    python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  done
 done
 
 DATASET='citeseer'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
-NUM_LAYERS=2
 DROPOUT=0.0
-for ((i = 0; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.LMs.trainKDLM --stage $i --pl_weight $PL_WEIGHT --dataset $DATASET >> kd/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> kd/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  mkdir -p log/$LOG_PATH
+  python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    sleep 1
+    python -m core.LMs.trainKDLM --stage $i --dataset $DATASET --seed $seed >> $LOG_PATH ;
+    python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  done
 done
 
 DATASET='pubmed'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
-NUM_LAYERS=2
 DROPOUT=0.0
-for ((i = 0; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.LMs.trainKDLM --stage $i --pl_weight $PL_WEIGHT --dataset $DATASET >> kd/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> kd/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  mkdir -p log/$LOG_PATH
+  python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    sleep 1
+    python -m core.LMs.trainKDLM --stage $i --dataset $DATASET --seed $seed >> $LOG_PATH ;
+    python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  done
 done
 
 DATASET='ogbn-arxiv'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
-NUM_LAYERS=2
 DROPOUT=0.5
-for ((i = 0; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.LMs.trainKDLM --stage $i --pl_weight $PL_WEIGHT --dataset $DATASET >> kd/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> kd/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  mkdir -p log/$LOG_PATH
+  python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    sleep 1
+    python -m core.LMs.trainKDLM --stage $i --dataset $DATASET --seed $seed >> $LOG_PATH ;
+    python -m core.GNNs.trainKDGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+  done
 done
 
 exit

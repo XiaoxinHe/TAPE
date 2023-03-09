@@ -19,8 +19,13 @@ class KDLMTrainer():
         self.dataset_name = args.dataset
         self.pl_weight = args.pl_weight
         self.lr = args.lr
+        self.seed = args.seed
+        assert self.stage > 0
+        self.prefix = "output" if self.stage > 1 else "prt_lm"
+        self.prev_ckpt = f"{self.prefix}/{self.dataset_name}/bert.pt"
+        self.ckpt = f"output/{self.dataset_name}/bert.pt"
 
-    @time_logger
+    @ time_logger
     def train(self):
         # Preprocess data
         data, text = load_data(dataset=self.dataset_name, use_text=True)
@@ -31,13 +36,13 @@ class KDLMTrainer():
         pred_t = None
         emb_t = None
         if self.stage > 0:
-            pred_t = np.memmap(f'output/{self.dataset_name}/gnn.pred{self.stage-1}',
+            pred_t = np.memmap(f'output/{self.dataset_name}/gnn.pred',
                                mode='r',
                                dtype=np.float32,
                                shape=(self.num_nodes, self.n_labels))
             pred_t = torch.Tensor(np.array(pred_t))
 
-            emb_t = np.memmap(f'output/{self.dataset_name}/gnn.emb{self.stage-1}',
+            emb_t = np.memmap(f'output/{self.dataset_name}/gnn.emb',
                               mode='r',
                               dtype=np.float32,
                               shape=(self.num_nodes, self.dim))
@@ -57,16 +62,17 @@ class KDLMTrainer():
             self.dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-
+        bert_model.config.att_dropout = 0.1
+        bert_model.config.dropout = 0.1
         self.model = KDBert(bert_model,
                             n_labels=self.n_labels,
                             is_augmented=self.stage > 0,
                             feat_shrink=feat_shrink,
+                            dropout=0.4,
                             pseudo_label_weight=self.pl_weight)
 
-        if self.stage > 0:
-            self.model.load_state_dict(torch.load(
-                f"output/{self.dataset_name}/bert{self.stage-1}.pt"))
+        print(f"loading model from {self.prev_ckpt}")
+        self.model.load_state_dict(torch.load(self.prev_ckpt))
 
         # Define Trainer
         log_steps = int(self.num_nodes/32*0.1)
@@ -85,7 +91,7 @@ class KDLMTrainer():
             per_device_train_batch_size=8,
             per_device_eval_batch_size=8*8,
             num_train_epochs=1 if self.stage > 0 else 5,
-            seed=0,
+            seed=self.seed,
             load_best_model_at_end=True,
             disable_tqdm=True,
             dataloader_num_workers=4,
@@ -107,17 +113,16 @@ class KDLMTrainer():
 
         # Train pre-trained model
         self.trainer.train()
-        torch.save(self.model.state_dict(), init_path(
-            f"output/{self.dataset_name}/bert{self.stage}.pt"))
+        torch.save(self.model.state_dict(), init_path(self.ckpt))
 
     @time_logger
     @torch.no_grad()
     def eval_and_save(self):
-        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
+        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb"),
                         dtype=np.float32,
                         mode='w+',
                         shape=(self.num_nodes, self.dim))
-        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
+        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred"),
                          dtype=np.float32,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))

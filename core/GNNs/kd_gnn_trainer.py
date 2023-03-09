@@ -44,15 +44,16 @@ class KDGNNTrainer():
         self.epochs = 1000
         self.lr = args.lr
         self.dim = feat_shrink if feat_shrink else 768
-        self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
-        self.pred = init_path(f"output/{self.dataset}/gnn.pred{self.stage}")
-        self.emb = init_path(f"output/{self.dataset}/gnn.emb{self.stage}")
+        self.ckpt = f"output/{self.dataset}/GNN.pt"
+        self.pred = init_path(f"output/{self.dataset}/gnn.pred")
+        self.emb = init_path(f"output/{self.dataset}/gnn.emb")
+        self.prefix = "output" if self.stage > 0 else "prt_lm"
 
         # ! Load data
         data = load_data(self.dataset)
 
         # ! Init gnn feature
-        emb = np.memmap(f'output/{self.dataset}/bert.emb{self.stage}',
+        emb = np.memmap(f'{self.prefix}/{self.dataset}/bert.emb',
                         mode='r',
                         dtype=np.float32,
                         shape=(data.x.shape[0], self.dim))
@@ -67,9 +68,8 @@ class KDGNNTrainer():
                            out_channels=self.n_labels,
                            num_layers=args.num_layers,
                            dropout=args.dropout).to(self.device)
-        # if self.stage > 0:
-        #     self.model.load_state_dict(torch.load(
-        #         f"output/{self.dataset}/GNN{self.stage-1}.pt"))
+        if self.stage > 0:
+            self.model.load_state_dict(torch.load(self.ckpt))
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
