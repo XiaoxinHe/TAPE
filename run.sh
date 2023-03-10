@@ -5,9 +5,10 @@ LM_LR=3e-5
 
 DATASET='cora'
 DROPOUT=0.0
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  # mkdir -p $LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
   python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
@@ -22,9 +23,10 @@ done
 
 DATASET='citeseer'
 DROPOUT=0.0
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  # mkdir -p $LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
   python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
@@ -39,9 +41,10 @@ done
 
 DATASET='pubmed'
 DROPOUT=0.0
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  # mkdir -p $LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
   python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
@@ -56,9 +59,10 @@ done
 
 DATASET='ogbn-arxiv'
 DROPOUT=0.5
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  # mkdir -p $LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
   python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
@@ -69,3 +73,4 @@ for ((seed = 0; seed < RUNS; seed++)); do
     python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> $LOG_PATH ;
   done
 done
+

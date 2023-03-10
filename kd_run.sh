@@ -4,9 +4,10 @@ RUNS=4
 
 DATASET='cora'
 DROPOUT=0.0
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  mkdir -p log/$LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
     sleep 1
@@ -17,9 +18,10 @@ done
 
 DATASET='citeseer'
 DROPOUT=0.0
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  mkdir -p log/$LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
     sleep 1
@@ -30,9 +32,10 @@ done
 
 DATASET='pubmed'
 DROPOUT=0.0
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  mkdir -p log/$LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
     sleep 1
@@ -43,9 +46,10 @@ done
 
 DATASET='ogbn-arxiv'
 DROPOUT=0.5
+LOGDIR=admm/${DATASET}
+mkdir -p $LOGDIR
 for ((seed = 0; seed < RUNS; seed++)); do
-  LOG_PATH=kd/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
-  mkdir -p log/$LOG_PATH
+  LOG_PATH=${LOGDIR}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
   python -m core.GNNs.trainKDGNN --stage 0 --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
   for ((i = 1; i < NUM_STAGE; i++)); do
     sleep 1
