@@ -1,66 +1,71 @@
 # !/bin/bash
 NUM_STAGE=5
-NUM_LAYERS=2
-
+RUNS=4
+LM_LR=3e-5
 
 DATASET='cora'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
 DROPOUT=0.0
-python -m core.LMs.trainAdmmLM --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainZ --stage 0 --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-for ((i = 1; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainZ --stage $i --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  # mkdir -p $LOG_PATH
+  python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLMClassifier --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.GNNs.trainZ --stage $i --dataset $DATASET >> $LOG_PATH ;
+    python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> $LOG_PATH ;
+  done
 done
+
 
 DATASET='citeseer'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
 DROPOUT=0.0
-python -m core.LMs.trainAdmmLM --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainZ --stage 0 --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-for ((i = 1; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainZ --stage $i --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  # mkdir -p $LOG_PATH
+  python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLMClassifier --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.GNNs.trainZ --stage $i --dataset $DATASET >> $LOG_PATH ;
+    python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> $LOG_PATH ;
+  done
 done
+
 
 DATASET='pubmed'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
 DROPOUT=0.0
-python -m core.LMs.trainAdmmLM --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainZ --stage 0 --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-for ((i = 1; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainZ --stage $i --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  # mkdir -p $LOG_PATH
+  python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLMClassifier --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.GNNs.trainZ --stage $i --dataset $DATASET >> $LOG_PATH ;
+    python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> $LOG_PATH ;
+  done
 done
-
 
 
 DATASET='ogbn-arxiv'
-LOG_PATH=$(date +%Y%m%d_%H%M%S)
 DROPOUT=0.5
-python -m core.LMs.trainAdmmLM --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainZ --stage 0 --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-for ((i = 1; i <= NUM_STAGE; i++)); do
-  sleep 1
-  python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --num_layers $NUM_LAYERS --dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainZ --stage $i --dataset $DATASET --gnn_num_layers $NUM_LAYERS --gnn_dropout $DROPOUT >> admm/$DATASET/${LOG_PATH}.txt ;
-  python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> admm/$DATASET/${LOG_PATH}.txt ;
+for ((seed = 0; seed < RUNS; seed++)); do
+  LOG_PATH=admm/${DATASET}/$(date +%Y%m%d_%H%M%S)_seed${seed}.txt
+  # mkdir -p $LOG_PATH
+  python -m core.GNNs.trainZ --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  python -m core.GNNs.trainGamma --stage 0 --dataset $DATASET >> $LOG_PATH ;
+  for ((i = 1; i < NUM_STAGE; i++)); do
+    python -m core.GNNs.trainAdmmGNN --stage $i --dataset $DATASET --dropout $DROPOUT >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLM --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.LMs.trainAdmmLMClassifier --stage $i --dataset $DATASET --lr $LM_LR >> $LOG_PATH ;
+    python -m core.GNNs.trainZ --stage $i --dataset $DATASET >> $LOG_PATH ;
+    python -m core.GNNs.trainGamma --stage $i --dataset $DATASET >> $LOG_PATH ;
+  done
 done
-
-
-exit
-

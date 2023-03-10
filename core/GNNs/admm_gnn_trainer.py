@@ -21,18 +21,19 @@ class ADMMGNNTrainer():
         self.epochs = 1000
         self.lr = args.lr
         self.dim = feat_shrink if feat_shrink else 768
-        self.prefix=''
         self.ckpt = f"output/{self.dataset}/GNN.pt"
+        self.prefix = "output" if self.stage > 0 else "prt_lm"
 
         # ! Load data
         data = load_data(self.dataset)
 
         # ! Init gnn feature
-        emb = np.memmap(f'output/{self.dataset}/z.emb',
+        emb = np.memmap(f'{self.prefix}/{self.dataset}/z.emb',
                         mode='r',
                         dtype=np.float32,
                         shape=(data.x.shape[0], self.dim))
-        self.features = torch.Tensor(np.array(emb)).to(self.device)
+        features = torch.Tensor(np.array(emb))
+        self.features = features.to(self.device)
         self.data = data.to(self.device)
         self.n_labels = self.data.y.unique().size(0)
 
@@ -50,9 +51,11 @@ class ADMMGNNTrainer():
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)
+
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
 
-        self.stopper = EarlyStopping(patience=early_stop, path=self.ckpt) if early_stop > 0 else None
+        self.stopper = EarlyStopping(
+            patience=early_stop, path=self.ckpt) if early_stop > 0 else None
         self.loss_func = torch.nn.CrossEntropyLoss()
 
         if 'ogbn' in self.dataset:

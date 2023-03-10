@@ -100,7 +100,7 @@ class KDLMTrainer():
             metric_for_best_model='loss',
             greater_is_better=False,
             # report_to="wandb"
-            learning_rate=self.lr if self.stage > 0 else 5e-5
+            learning_rate=self.lr
         )
         self.trainer = Trainer(
             model=self.model,
@@ -126,8 +126,7 @@ class KDLMTrainer():
                          dtype=np.float32,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))
-        inf_model = InfModel(self.model, emb, pred,
-                             feat_shrink=feat_shrink)  # .to(self.cf.device)
+        inf_model = InfModel(self.model, emb, pred, feat_shrink=feat_shrink)
         inf_model.eval()
         inference_args = TrainingArguments(
             output_dir=f'output/',
@@ -135,7 +134,7 @@ class KDLMTrainer():
             do_predict=True,
             per_device_eval_batch_size=64,
             dataloader_drop_last=False,
-            dataloader_num_workers=1,
+            dataloader_num_workers=4,
             fp16_full_eval=False,
             disable_tqdm=True,
         )
@@ -158,7 +157,7 @@ class KDLMTrainer():
             np.argmax(pred[x], -1), self.data.y[x])
 
         res = {
-            'train_acc': eval(self.data.train_mask),
-            'val_acc': eval(self.data.val_mask),
-            'test_acc': eval(self.data.test_mask)}
+            'lm_train_acc': eval(self.data.train_mask),
+            'lm_val_acc': eval(self.data.val_mask),
+            'lm_test_acc': eval(self.data.test_mask)}
         print(res)

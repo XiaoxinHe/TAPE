@@ -21,8 +21,10 @@ class AdmmLMTrainer():
         self.lr = args.lr
         self.seed = args.seed
         self.dim = feat_shrink if feat_shrink else 768
-        self.prefix = "output" if self.stage > 0 else "prt_lm"
-        self.ckpt = f"{self.prefix}/{self.dataset_name}/bert.pt"
+        assert self.stage > 0
+        self.prefix = "output" if self.stage > 1 else "prt_lm"
+        self.prev_ckpt = f"{self.prefix}/{self.dataset_name}/bert.pt"
+        self.ckpt = f"output/{self.dataset_name}/bert.pt"
 
     @time_logger
     def train(self):
@@ -30,30 +32,28 @@ class AdmmLMTrainer():
         data, text = load_data(dataset=self.dataset_name, use_text=True)
         self.data = data
         self.num_nodes = data.x.shape[0]
+        self.dim = feat_shrink if feat_shrink else 768
         self.n_labels = data.y.unique().size(0)
-        features = data.x
+
         gamma = None
 
-        if self.stage > 0:
-            emb = np.memmap(f'{self.prefix}/{self.dataset_name}/z.emb',
-                            mode='r',
-                            dtype=np.float32,
-                            shape=(self.num_nodes, self.dim))
-            emb = torch.Tensor(np.array(emb))
+        emb = np.memmap(f'output/{self.dataset_name}/z.emb',
+                        mode='r',
+                        dtype=np.float32,
+                        shape=(self.num_nodes, self.dim))
+        emb = torch.Tensor(np.array(emb))
 
-            gamma = np.memmap(f'{self.prefix}/{self.dataset_name}/gamma.emb',
-                              mode='r',
-                              dtype=np.float32,
-                              shape=(self.num_nodes, self.dim))
-            gamma = torch.Tensor(np.array(gamma))
-
-            features = emb
+        gamma = np.memmap(f'output/{self.dataset_name}/gamma.emb',
+                          mode='r',
+                          dtype=np.float32,
+                          shape=(self.num_nodes, self.dim))
+        gamma = torch.Tensor(np.array(gamma))
 
         # Define pretrained tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
         self.dataset = Dataset(
-            X, data.y.tolist(), features=features, gamma=gamma)
+            X, data.y.tolist(), features=emb, gamma=gamma)
 
         self.train_dataset = torch.utils.data.Subset(
             self.dataset, data.train_mask.nonzero().squeeze().tolist())
@@ -63,23 +63,23 @@ class AdmmLMTrainer():
             self.dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-
+        bert_model.config.att_dropout = 0.1
+        bert_model.config.dropout = 0.1
         self.model = ADMMBert(bert_model,
-                              penalty=self.penalty,
                               n_labels=self.n_labels,
                               is_augmented=self.stage > 0,
-                              feat_shrink=feat_shrink)
+                              feat_shrink=feat_shrink,
+                              dropout=0.4,
+                              penalty=self.penalty)
 
-        if self.stage > 0:
-            self.model.load_state_dict(torch.load(
-                f"{self.prefix}/{self.dataset_name}/bert.pt"))
+        print(f"loading model from {self.prev_ckpt}")
+        self.model.load_state_dict(torch.load(self.prev_ckpt))
 
+        # Define Trainer
         log_steps = int(self.num_nodes/32*0.1)
         eval_steps = int(self.num_nodes/32*0.2)
         print("log_steps: ", log_steps)
         print("eval_steps: ", eval_steps)
-
-        # Define Trainer
         args = TrainingArguments(
             output_dir=f"output/{self.dataset_name}",
             do_train=True,
@@ -100,12 +100,12 @@ class AdmmLMTrainer():
             weight_decay=0.01,
             metric_for_best_model='loss',
             greater_is_better=False,
-            learning_rate=self.lr if self.stage > 0 else 5e-5
+            learning_rate=self.lr
         )
         self.trainer = Trainer(
             model=self.model,
             args=args,
-            train_dataset=self.dataset if self.stage > 0 else self.train_dataset,
+            train_dataset=self.dataset,
             eval_dataset=self.val_dataset,
             compute_metrics=compute_metrics,
             # callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
@@ -115,18 +115,18 @@ class AdmmLMTrainer():
         self.trainer.train()
         torch.save(self.model.state_dict(), init_path(self.ckpt))
 
+    @time_logger
     @torch.no_grad()
     def eval_and_save(self):
-        emb = np.memmap(init_path(f"{self.prefix}/{self.dataset_name}/bert.emb"),
+        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb"),
                         dtype=np.float32,
                         mode='w+',
                         shape=(self.num_nodes, self.dim))
-        pred = np.memmap(init_path(f"{self.prefix}/{self.dataset_name}/bert.pred"),
+        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred"),
                          dtype=np.float32,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))
-        inf_model = InfModel(self.model, emb, pred,
-                             feat_shrink=feat_shrink)  # .to(self.cf.device)
+        inf_model = InfModel(self.model, emb, pred, feat_shrink=feat_shrink)
         inf_model.eval()
         inference_args = TrainingArguments(
             output_dir=f'output/',
@@ -157,7 +157,7 @@ class AdmmLMTrainer():
             np.argmax(pred[x], -1), self.data.y[x])
 
         res = {
-            'train_acc': eval(self.data.train_mask),
-            'val_acc': eval(self.data.val_mask),
-            'test_acc': eval(self.data.test_mask)}
+            'lm_train_acc': eval(self.data.train_mask),
+            'lm_val_acc': eval(self.data.val_mask),
+            'lm_test_acc': eval(self.data.test_mask)}
         print(res)

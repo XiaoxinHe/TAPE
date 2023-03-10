@@ -3,7 +3,7 @@ import numpy as np
 from core.utils.data.dataset import Dataset
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer
 from transformers import EarlyStoppingCallback, IntervalStrategy
-from core.LMs.model import ADMMBert, AdmmInfModel
+from core.LMs.model import ADMMBert, InfModel
 
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
@@ -20,6 +20,9 @@ class AdmmLMTrainer():
         self.penalty = args.penalty
         self.lr = args.lr
         self.seed = args.seed
+        self.dim = feat_shrink if feat_shrink else 768
+        assert self.stage > 0
+        self.ckpt = f"output/{self.dataset_name}/bert.pt"
 
     @time_logger
     def train(self):
@@ -27,16 +30,13 @@ class AdmmLMTrainer():
         data, text = load_data(dataset=self.dataset_name, use_text=True)
         self.data = data
         self.num_nodes = data.x.shape[0]
-        self.n_labels = data.y.unique().size(0)
         self.dim = feat_shrink if feat_shrink else 768
-        features = data.x
-        gamma = None
+        self.n_labels = data.y.unique().size(0)
 
         # Define pretrained tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
-        self.dataset = Dataset(
-            X, data.y.tolist(), features=features, gamma=gamma)
+        self.dataset = Dataset(X, data.y.tolist())
 
         self.train_dataset = torch.utils.data.Subset(
             self.dataset, data.train_mask.nonzero().squeeze().tolist())
@@ -46,32 +46,31 @@ class AdmmLMTrainer():
             self.dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-
+        bert_model.config.att_dropout = 0.1
+        bert_model.config.dropout = 0.1
         self.model = ADMMBert(bert_model,
-                              penalty=self.penalty,
-                              n_labels=data.y.unique().size(0),
+                              n_labels=self.n_labels,
                               is_augmented=False,
                               feat_shrink=feat_shrink,
+                              dropout=0.4,
+                              penalty=self.penalty,
                               freeze_bert=True)
 
-        print(
-            f"loading model from output/{self.dataset_name}/bert{self.stage}.pt")
-        self.model.load_state_dict(torch.load(
-            f"output/{self.dataset_name}/bert{self.stage}.pt"))
+        print(f"loading model from {self.ckpt}")
+        self.model.load_state_dict(torch.load(self.ckpt))
 
+        # Define Trainer
         log_steps = int(self.num_nodes/32*0.1)
         eval_steps = int(self.num_nodes/32*0.2)
         print("log_steps: ", log_steps)
         print("eval_steps: ", eval_steps)
-
-        # Define Trainer
         args = TrainingArguments(
             output_dir=f"output/{self.dataset_name}",
             do_train=True,
             do_eval=True,
             logging_steps=log_steps,
             evaluation_strategy=IntervalStrategy.STEPS,
-            save_total_limit=3,
+            save_total_limit=1,
             eval_steps=eval_steps,
             save_steps=eval_steps,
             per_device_train_batch_size=8,
@@ -84,8 +83,8 @@ class AdmmLMTrainer():
             dataloader_drop_last=True,
             weight_decay=0.01,
             metric_for_best_model='loss',
-            greater_is_better=False
-            # learning_rate=2e-5
+            greater_is_better=False,
+            learning_rate=self.lr
         )
         self.trainer = Trainer(
             model=self.model,
@@ -98,19 +97,20 @@ class AdmmLMTrainer():
 
         # Train pre-trained model
         self.trainer.train()
+        torch.save(self.model.state_dict(), init_path(self.ckpt))
 
+    @time_logger
     @torch.no_grad()
     def eval_and_save(self):
-
-        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb{self.stage}"),
+        emb = np.memmap(init_path(f"output/{self.dataset_name}/bert.emb"),
                         dtype=np.float32,
                         mode='w+',
                         shape=(self.num_nodes, self.dim))
-        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred{self.stage}"),
+        pred = np.memmap(init_path(f"output/{self.dataset_name}/bert.pred"),
                          dtype=np.float32,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))
-        inf_model = AdmmInfModel(
+        inf_model = InfModel(
             self.model, emb, pred, feat_shrink=feat_shrink)  # .to(self.cf.device)
         inf_model.eval()
         inference_args = TrainingArguments(
@@ -119,7 +119,7 @@ class AdmmLMTrainer():
             do_predict=True,
             per_device_eval_batch_size=64,
             dataloader_drop_last=False,
-            dataloader_num_workers=1,
+            dataloader_num_workers=4,
             fp16_full_eval=False,
             disable_tqdm=True,
         )

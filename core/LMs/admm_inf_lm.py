@@ -92,9 +92,9 @@ class AdmmInfLMTrainer():
             np.argmax(self.pred[x], -1), self.data.y[x])
 
         res = {
-            'train_acc': eval(self.data.train_mask),
-            'val_acc': eval(self.data.val_mask),
-            'test_acc': eval(self.data.test_mask)}
+            'lm_train_acc': eval(self.data.train_mask),
+            'lm_val_acc': eval(self.data.val_mask),
+            'lm_test_acc': eval(self.data.test_mask)}
         print(res)
 
 

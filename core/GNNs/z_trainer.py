@@ -28,15 +28,15 @@ class ZTrainer():
         self.device = args.device
         self.stage = args.stage
         self.dataset = args.dataset
-        self.penalty = args.penalty
+        self.epochs = 1000
         self.lr = args.lr
-        self.gnn_num_layers = args.gnn_num_layers
-        self.gnn_dropout = args.gnn_dropout
 
         self.dim = feat_shrink if feat_shrink else 768
-        self.epochs = 1000
-        self.ckpt = init_path(f"output/{self.dataset}/z.emb")
-        self.model_ckpt = init_path(f"output/{self.dataset}/z.pt")
+        self.gnn_num_layers = args.gnn_num_layers
+        self.penalty = args.penalty
+
+        self.emb = f"output/{self.dataset}/z.emb"
+        self.ckpt = init_path(f"output/{self.dataset}/z.pt")
 
         # ! Load data
         data = load_data(self.dataset)
@@ -94,12 +94,11 @@ class ZTrainer():
                        hidden_channels=self.dim,
                        out_channels=self.data.y.unique().size(0),
                        num_layers=self.gnn_num_layers,
-                       dropout=self.gnn_dropout
                        ).to(self.device)
         self.gnn.load_state_dict(torch.load(gnn_ckpt))
 
     def _load_model_z(self):
-        z = np.memmap(self.ckpt, mode='r', dtype=np.float32,
+        z = np.memmap(init_path(self.emb), mode='r', dtype=np.float32,
                       shape=(self.n_nodes, self.dim))
         z = torch.Tensor(np.array(z))
         self.model = Z(z.detach().clone()).to(self.device)
@@ -117,7 +116,7 @@ class ZTrainer():
 
         print(f'!!!!!Z Phase, trainable_params are {trainable_params}')
         self.stopper = EarlyStopping(
-            patience=early_stop, path=self.model_ckpt) if early_stop > 0 else None
+            patience=early_stop, path=self.ckpt) if early_stop > 0 else None
         self.loss_func_gnn = torch.nn.CrossEntropyLoss()
         self.mse_loss = torch.nn.MSELoss()
 
@@ -162,13 +161,13 @@ class ZTrainer():
         print(res)
 
         z = self.model()
-        save_memmap(z.cpu().numpy(), self.ckpt, dtype=np.float32)
+        save_memmap(z.cpu().numpy(), init_path(self.emb), dtype=np.float32)
 
     @torch.no_grad()
     def init(self):
-        lm_x = np.memmap(f"output/{self.dataset}/bert.emb0",
+        lm_x = np.memmap(f"prt_lm/{self.dataset}/bert.emb",
                          mode='r',
                          dtype=np.float32,
                          shape=(self.n_nodes, feat_shrink if feat_shrink else 768))
 
-        save_memmap(lm_x, self.ckpt, dtype=np.float32)
+        save_memmap(lm_x, init_path(self.emb), dtype=np.float32)
