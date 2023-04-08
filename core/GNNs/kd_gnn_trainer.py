@@ -1,4 +1,4 @@
-from ogb.nodeproppred import PygNodePropPredDataset
+
 import torch_geometric.transforms as T
 from core.utils.function.os_utils import init_path
 from core.utils.function.np_utils import save_memmap
@@ -20,6 +20,7 @@ def load_data(dataset):
         from core.preprocess import preprocessing
         data = preprocessing(dataset, use_text=False)
     else:
+        from ogb.nodeproppred import PygNodePropPredDataset
         dataset = PygNodePropPredDataset(dataset, transform=T.ToSparseTensor())
         data = dataset[0]
         data.edge_index = data.adj_t.to_symmetric()

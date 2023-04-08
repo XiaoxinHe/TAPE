@@ -1,3 +1,6 @@
+import torch_geometric
+from scipy import sparse as sp
+
 from core.GNNs.kd_gnn_trainer import load_data
 import numpy as np
 import torch
@@ -23,6 +26,15 @@ class Z(torch.nn.Module):
         return self.Z
 
 
+def lagrangien(g):
+    degree = torch_geometric.utils.degree(g.edge_index[0], g.num_nodes)
+    A = torch_geometric.utils.to_scipy_sparse_matrix(
+        g.edge_index, num_nodes=g.num_nodes)
+    N = sp.diags(np.array(degree.clip(1) ** -0.5, dtype=float))
+    L = sp.eye(g.num_nodes) - N * A * N
+    return torch.Tensor(L.todense())
+
+
 class ZTrainer():
     def __init__(self, args):
         self.device = args.device
@@ -34,12 +46,14 @@ class ZTrainer():
         self.dim = feat_shrink if feat_shrink else 768
         self.gnn_num_layers = args.gnn_num_layers
         self.penalty = args.penalty
+        self.gamma = args.gamma
 
         self.emb = f"output/{self.dataset}/z.emb"
         self.ckpt = init_path(f"output/{self.dataset}/z.pt")
 
         # ! Load data
         data = load_data(self.dataset)
+        self.L = lagrangien(data).to(self.device)
         self.data = data.to(self.device)
         self.n_nodes = self.data.x.size(0)
 
@@ -56,16 +70,13 @@ class ZTrainer():
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss_gnn = self.loss_func_gnn(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
-        # loss0 = 0.5*self.penalty * \
-        #     self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
-
-        tmp = z-self.lm_x
-        loss0 = (self.gamma*tmp).mean()
-        loss1 = 0.5*self.penalty*(tmp**2).mean()
-        loss = loss_gnn + loss0 + loss1
+        loss_cons = 0.5*self.penalty * \
+            self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
+        dig_loss = self.gamma*torch.trace(z.T @ self.L @ z)/self.dim
+        loss = loss_gnn + loss_cons + dig_loss
         loss.backward()
         self.optimizer.step()
-        return loss.item(), loss_gnn.item(), loss0.item(), loss1.item(), train_acc
+        return loss_gnn.item(), loss_cons.item(), dig_loss.item(), train_acc
 
     @torch.no_grad()
     def _evaluate(self):
@@ -134,7 +145,7 @@ class ZTrainer():
         # ! Training
         for epoch in range(self.epochs):
             t0, es_str = time(), ''
-            loss, loss_gnn, loss0, loss1, train_acc = self._train()
+            loss_gnn, loss_cons, loss_dir, train_acc = self._train()
             val_acc, test_acc, _ = self._evaluate()
             if self.stopper is not None:
                 es_flag, es_str = self.stopper.step(val_acc, self.model, epoch)
@@ -143,10 +154,10 @@ class ZTrainer():
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
             if epoch % LOG_FREQ == 0:
-                log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
-                            'Loss(GNN)': round(loss_gnn, 4), 'Loss0': round(loss0, 8), 'Loss1': round(loss1, 8),
+                log_dict = {'Epoch': epoch,
+                            'Loss(GNN)': round(loss_gnn, 4), 'Loss(Cons)': round(loss_cons, 4), 'Loss(Dir)': round(loss_dir, 4),
                             'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
-                            'ES': es_str, 'GNN_epoch': epoch}
+                            'ES': es_str}
                 print(log_dict)
 
         # ! Finished training, load checkpoints

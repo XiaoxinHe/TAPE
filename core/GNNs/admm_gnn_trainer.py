@@ -1,11 +1,9 @@
-from core.GNNs.kd_gnn_trainer import load_data
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 from core.GNNs.GCN.model import GCN
 from core.utils.modules.early_stopper import EarlyStopping
+from core.GNNs.kd_gnn_trainer import load_data
 
 
 early_stop = 50
@@ -23,7 +21,8 @@ class ADMMGNNTrainer():
         self.dim = feat_shrink if feat_shrink else 768
         self.ckpt = f"output/{self.dataset}/GNN.pt"
         self.prefix = "output" if self.stage > 0 else "prt_lm"
-
+        self.beta = args.beta
+        
         # ! Load data
         data = load_data(self.dataset)
 
@@ -32,8 +31,7 @@ class ADMMGNNTrainer():
                         mode='r',
                         dtype=np.float32,
                         shape=(data.x.shape[0], self.dim))
-        features = torch.Tensor(np.array(emb))
-        self.features = features.to(self.device)
+        self.features = torch.Tensor(np.array(emb)).to(self.device)
         self.data = data.to(self.device)
         self.n_labels = self.data.y.unique().size(0)
 
@@ -73,13 +71,21 @@ class ADMMGNNTrainer():
         self.model.train()
         self.optimizer.zero_grad()
         logits = self.model(self.features, self.data.edge_index)
-        loss = self.loss_func(
+
+        task_loss = self.loss_func(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
-        train_acc = self.evaluator(
-            logits[self.data.train_mask], self.data.y[self.data.train_mask])
+        if 'ogbn' in self.dataset:
+            src, dst=self.data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
+        else:
+            src, dst = self.data.edge_index
+        gtv_loss= self.beta *(logits[src]-logits[dst]).abs().sum()/self.dim
+        loss = task_loss + gtv_loss
         loss.backward()
         self.optimizer.step()
-        return loss.item(), train_acc
+        
+        train_acc = self.evaluator(
+            logits[self.data.train_mask], self.data.y[self.data.train_mask])
+        return task_loss.item(), gtv_loss.item(), train_acc
 
     @ torch.no_grad()
     def _evaluate(self):
@@ -95,7 +101,7 @@ class ADMMGNNTrainer():
         # ! Training
         for epoch in range(self.epochs):
             es_str = ''
-            loss, train_acc = self._train()
+            task_loss, gtv_loss, train_acc = self._train()
             val_acc, test_acc, _ = self._evaluate()
             if self.stopper is not None:
                 es_flag, es_str = self.stopper.step(val_acc, self.model, epoch)
@@ -104,9 +110,9 @@ class ADMMGNNTrainer():
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
             if epoch % LOG_FREQ == 0:
-                log_dict = {'Epoch': epoch, 'Loss': round(loss, 4),
+                log_dict = {'Epoch': epoch, 'Task Loss': round(task_loss, 4), 'GTV Loss': round(gtv_loss, 4),
                             'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4),
-                            'ES': es_str, 'GNN_epoch': epoch}
+                            'ES': es_str}
                 print(log_dict)
 
         # ! Finished training, load checkpoints
@@ -118,7 +124,7 @@ class ADMMGNNTrainer():
     @ torch.no_grad()
     def eval_and_save(self):
         torch.save(self.model.state_dict(), self.ckpt)
-        val_acc, test_acc, logits = self._evaluate()
+        val_acc, test_acc, _ = self._evaluate()
         res = {'gnn_val_acc': val_acc, 'gnn_test_acc': test_acc}
         print(res)
         

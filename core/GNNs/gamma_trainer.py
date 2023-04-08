@@ -1,9 +1,10 @@
-from core.GNNs.kd_gnn_trainer import load_data
-import numpy as np
-import torch
 
+import torch
+import numpy as np
 from core.utils.function.os_utils import init_path
 from core.utils.function.np_utils import save_memmap
+from core.GNNs.kd_gnn_trainer import load_data
+
 
 feat_shrink = ""
 

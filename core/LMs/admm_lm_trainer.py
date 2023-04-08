@@ -77,7 +77,7 @@ class AdmmLMTrainer():
 
         # Define Trainer
         log_steps = int(self.num_nodes/32*0.1)
-        eval_steps = int(self.num_nodes/32*0.2)
+        eval_steps = int(self.num_nodes)
         print("log_steps: ", log_steps)
         print("eval_steps: ", eval_steps)
         args = TrainingArguments(

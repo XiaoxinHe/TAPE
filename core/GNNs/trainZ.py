@@ -11,6 +11,7 @@ if __name__ == "__main__":
     parser.add_argument('--gnn_num_layers', type=int, default=2)
     parser.add_argument('--penalty', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--gamma', type=float, default=1e-7)
 
     args = parser.parse_args()
     print(f"\n\n[Z/{args.stage}]")
