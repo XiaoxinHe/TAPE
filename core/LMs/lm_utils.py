@@ -33,10 +33,10 @@ def compute_loss(logits, labels, emb, pesudo_emb, pl_weight=0.5, is_augmented=Fa
 
 def compute_admm_loss(logits, labels, emb, pesudo_emb, gamma, penalty=0.5, is_augmented=False):
     if is_augmented:
-        # mse_loss = torch.nn.MSELoss()
-        # loss = 0.5*penalty*mse_loss(emb, pesudo_emb+gamma/penalty)
-        tmp = pesudo_emb-emb
-        loss = (gamma*tmp).mean() + 0.5*penalty*((tmp**2).mean())
+        mse_loss = torch.nn.MSELoss()
+        loss = mse_loss(emb, pesudo_emb+gamma/penalty)
+        # tmp = pesudo_emb-emb
+        # loss = (gamma*tmp).mean() + 0.5*penalty*((tmp**2).mean())
     else:
         cross_entropy = torch.nn.CrossEntropyLoss()
         loss = cross_entropy(logits, labels)

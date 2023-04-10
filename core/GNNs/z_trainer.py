@@ -1,6 +1,6 @@
 import torch_geometric
 from scipy import sparse as sp
-
+import torch_sparse
 from core.GNNs.kd_gnn_trainer import load_data
 import numpy as np
 import torch
@@ -17,6 +17,56 @@ LOG_FREQ = 10
 feat_shrink = ""
 
 
+def lagrangien(g):
+    if type(g.edge_index) is torch_sparse.tensor.SparseTensor:
+        # ogbn-arxiv
+        edge_index = g.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
+    else:
+        edge_index = g.edge_index
+
+    degree = torch_geometric.utils.degree(edge_index[0], g.num_nodes)
+    A = torch_geometric.utils.to_scipy_sparse_matrix(
+        edge_index, num_nodes=g.num_nodes)
+    N = sp.diags(np.array(degree.clip(1) ** -0.5, dtype=float))
+    L = sp.eye(g.num_nodes) - N * A * N
+
+    return torch.Tensor(L.todense())
+
+
+def block_trace(A, B, device, block_size=1000):
+    """
+    Block-wise matrix multiplication and trace calculation.
+
+    Args:
+    A: input tensor of shape (N, d)
+    B: input tensor of shape (N, N)
+    block_size: block size to be used in matrix multiplication
+
+    Returns:
+    trace: trace of the tensor product of A and B
+    """
+    # Get tensor dimensions
+    N = A.shape[0]
+    d = A.shape[1]
+
+    # Initialize trace
+    trace = 0
+    
+    # Perform block-wise matrix multiplication and trace calculation
+    for i in range(0, N, block_size):
+        # Get blocks of A and B
+        A_block = A[i:i+block_size, :].to(device)
+        B_block = B[i:i+block_size, i:i+block_size].to(device)
+
+        # Calculate block products
+        block_product = A_block.T @ B_block @ A_block
+
+        # Add diagonal elements to trace
+        trace += torch.trace(block_product)
+
+    return trace
+
+
 class Z(torch.nn.Module):
     def __init__(self, z):
         super(Z, self).__init__()
@@ -24,15 +74,6 @@ class Z(torch.nn.Module):
 
     def forward(self):
         return self.Z
-
-
-def lagrangien(g):
-    degree = torch_geometric.utils.degree(g.edge_index[0], g.num_nodes)
-    A = torch_geometric.utils.to_scipy_sparse_matrix(
-        g.edge_index, num_nodes=g.num_nodes)
-    N = sp.diags(np.array(degree.clip(1) ** -0.5, dtype=float))
-    L = sp.eye(g.num_nodes) - N * A * N
-    return torch.Tensor(L.todense())
 
 
 class ZTrainer():
@@ -46,15 +87,17 @@ class ZTrainer():
         self.dim = feat_shrink if feat_shrink else 768
         self.gnn_num_layers = args.gnn_num_layers
         self.penalty = args.penalty
-        self.gamma = args.gamma
+        self.theta = args.theta
 
         self.emb = f"output/{self.dataset}/z.emb"
         self.ckpt = init_path(f"output/{self.dataset}/z.pt")
 
         # ! Load data
         data = load_data(self.dataset)
-        self.L = lagrangien(data).to(self.device)
+        self.L = lagrangien(data)
         self.data = data.to(self.device)
+        # self.L = lagrangien(data)
+        # self.data = data
         self.n_nodes = self.data.x.size(0)
 
     def _train(self):
@@ -72,7 +115,10 @@ class ZTrainer():
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss_cons = 0.5*self.penalty * \
             self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
-        dig_loss = self.gamma*torch.trace(z.T @ self.L @ z)/self.dim
+        # dig_loss = self.theta*torch.trace(torch.sparse.mm(torch.sparse.mm(z.T.to_sparse(), self.L), z.to_sparse()))/self.dim
+        trace = block_trace(z, self.L, self.device)
+        dig_loss = self.theta * trace / self.dim
+        # dig_loss = self.theta * torch.trace(z.T@self.L@z) / self.dim
         loss = loss_gnn + loss_cons + dig_loss
         loss.backward()
         self.optimizer.step()
@@ -94,10 +140,12 @@ class ZTrainer():
         lm_x = np.memmap(f"output/{self.dataset}/bert.emb", mode='r',
                          dtype=np.float32, shape=(self.n_nodes, self.dim))
         self.lm_x = torch.Tensor(np.array(lm_x)).to(self.device)
+        # self.lm_x = torch.Tensor(np.array(lm_x))
 
         gamma = np.memmap(f"output/{self.dataset}/gamma.emb", mode='r',
                           dtype=np.float32, shape=(self.n_nodes, self.dim))
         self.gamma = torch.Tensor(np.array(gamma)).to(self.device)
+        # self.gamma = torch.Tensor(np.array(gamma))
 
     def _load_gnn(self):
         gnn_ckpt = f"output/{self.dataset}/GNN.pt"
@@ -106,6 +154,11 @@ class ZTrainer():
                        out_channels=self.data.y.unique().size(0),
                        num_layers=self.gnn_num_layers,
                        ).to(self.device)
+        # self.gnn = GCN(in_channels=self.dim,
+        #                hidden_channels=self.dim,
+        #                out_channels=self.data.y.unique().size(0),
+        #                num_layers=self.gnn_num_layers,
+        #                )
         self.gnn.load_state_dict(torch.load(gnn_ckpt))
 
     def _load_model_z(self):
@@ -113,6 +166,7 @@ class ZTrainer():
                       shape=(self.n_nodes, self.dim))
         z = torch.Tensor(np.array(z))
         self.model = Z(z.detach().clone()).to(self.device)
+        # self.model = Z(z.detach().clone())
 
     def train(self):
         self._load_data()
