@@ -13,7 +13,7 @@ from core.utils.function.np_utils import save_memmap
 
 
 early_stop = 50
-LOG_FREQ = 10
+LOG_FREQ = 1
 feat_shrink = ""
 
 
@@ -33,38 +33,38 @@ def lagrangien(g):
     return torch.Tensor(L.todense())
 
 
-def block_trace(A, B, device, block_size=1000):
+def block_multiply(matrix_a, matrix_b, device='cpu', block_size=100):
     """
     Block-wise matrix multiplication and trace calculation.
 
     Args:
-    A: input tensor of shape (N, d)
-    B: input tensor of shape (N, N)
+    matrix_a: input tensor of shape (A, N)
+    matrix_b: input tensor of shape (N, B), sparse tensor
     block_size: block size to be used in matrix multiplication
 
     Returns:
-    trace: trace of the tensor product of A and B
+    trace: trace of the tensor product of matrix_a and matrix_b
     """
     # Get tensor dimensions
-    N = A.shape[0]
-    d = A.shape[1]
+    A = matrix_a.shape[0]
+    N = matrix_a.shape[1]
+    B = matrix_b.shape[1]
+    num_blocks = (N+block_size-1) // block_size
 
-    # Initialize trace
-    trace = 0
-    
+    # Initialize result
+    product = torch.zeros(A, B).to(device)
+
     # Perform block-wise matrix multiplication and trace calculation
-    for i in range(0, N, block_size):
+    for i in range(num_blocks):
         # Get blocks of A and B
-        A_block = A[i:i+block_size, :].to(device)
-        B_block = B[i:i+block_size, i:i+block_size].to(device)
+        A_block = matrix_a[:, i*block_size:(i+1)*block_size].to(device)
+        B_block = matrix_b[i*block_size:(i+1)*block_size, :].to(device)
 
         # Calculate block products
-        block_product = A_block.T @ B_block @ A_block
+        block_product = A_block @ B_block
+        product += block_product
 
-        # Add diagonal elements to trace
-        trace += torch.trace(block_product)
-
-    return trace
+    return product
 
 
 class Z(torch.nn.Module):
@@ -96,8 +96,6 @@ class ZTrainer():
         data = load_data(self.dataset)
         self.L = lagrangien(data)
         self.data = data.to(self.device)
-        # self.L = lagrangien(data)
-        # self.data = data
         self.n_nodes = self.data.x.size(0)
 
     def _train(self):
@@ -116,9 +114,13 @@ class ZTrainer():
         loss_cons = 0.5*self.penalty * \
             self.mse_loss(z, (self.lm_x-self.gamma/self.penalty))
         # dig_loss = self.theta*torch.trace(torch.sparse.mm(torch.sparse.mm(z.T.to_sparse(), self.L), z.to_sparse()))/self.dim
-        trace = block_trace(z, self.L, self.device)
+        # zTL=block_multiply(z.T, self.L, self.device)
+        # zTLz=block_multiply(zTL, z, self.device)
+        
+        zTLz = z.T.cpu()@self.L@z.cpu()
+        trace = torch.trace(zTLz).to(self.device)
+        
         dig_loss = self.theta * trace / self.dim
-        # dig_loss = self.theta * torch.trace(z.T@self.L@z) / self.dim
         loss = loss_gnn + loss_cons + dig_loss
         loss.backward()
         self.optimizer.step()
