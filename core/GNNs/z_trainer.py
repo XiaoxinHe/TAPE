@@ -116,10 +116,10 @@ class ZTrainer():
         # dig_loss = self.theta*torch.trace(torch.sparse.mm(torch.sparse.mm(z.T.to_sparse(), self.L), z.to_sparse()))/self.dim
         # zTL=block_multiply(z.T, self.L, self.device)
         # zTLz=block_multiply(zTL, z, self.device)
-        
+
         zTLz = z.T.cpu()@self.L@z.cpu()
         trace = torch.trace(zTLz).to(self.device)
-        
+
         dig_loss = self.theta * trace / self.dim
         loss = loss_gnn + loss_cons + dig_loss
         loss.backward()
@@ -209,11 +209,12 @@ class ZTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
+            t1 = time()
             if epoch % LOG_FREQ == 0:
                 log_dict = {'Epoch': epoch,
                             'Loss(GNN)': round(loss_gnn, 4), 'Loss(Cons)': round(loss_cons, 4), 'Loss(Dir)': round(loss_dir, 4),
                             'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
-                            'ES': es_str}
+                            'Time': round(t1 - t0, 4), 'ES': es_str}
                 print(log_dict)
 
         # ! Finished training, load checkpoints
