@@ -6,7 +6,7 @@ from core.utils.modules.early_stopper import EarlyStopping
 from core.GNNs.kd_gnn_trainer import load_data
 
 
-early_stop = 50
+early_stop = 300
 LOG_FREQ = 10
 feat_shrink = ""
 

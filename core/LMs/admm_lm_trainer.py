@@ -25,6 +25,11 @@ class AdmmLMTrainer():
         self.prefix = "output" if self.stage > 1 else "prt_lm"
         self.prev_ckpt = f"{self.prefix}/{self.dataset_name}/bert.pt"
         self.ckpt = f"output/{self.dataset_name}/bert.pt"
+        self.warmup_epochs = args.warmup_epochs
+        self.weight_decay = args.weight_decay
+        self.dropout = args.dropout
+        self.att_dropout = args.att_dropout
+        self.cla_dropout = args.cla_dropout
 
     @time_logger
     def train(self):
@@ -63,14 +68,15 @@ class AdmmLMTrainer():
             self.dataset, data.test_mask.nonzero().squeeze().tolist())
 
         bert_model = AutoModel.from_pretrained(self.model_name)
-        bert_model.config.att_dropout = 0.1
-        bert_model.config.dropout = 0.1
+
         self.model = ADMMBert(bert_model,
                               n_labels=self.n_labels,
                               is_augmented=self.stage > 0,
                               feat_shrink=feat_shrink,
-                              dropout=0.4,
+                              dropout=self.cla_dropout,
                               penalty=self.penalty)
+        self.model.config.dropout = self.dropout
+        self.model.config.attention_dropout = self.att_dropout
 
         print(f"loading model from {self.prev_ckpt}")
         self.model.load_state_dict(torch.load(self.prev_ckpt))
@@ -97,10 +103,10 @@ class AdmmLMTrainer():
             disable_tqdm=True,
             dataloader_num_workers=4,
             dataloader_drop_last=True,
-            weight_decay=0.01,
             metric_for_best_model='loss',
             greater_is_better=False,
-            learning_rate=self.lr
+            learning_rate=self.lr,
+            weight_decay=self.weight_decay,
         )
         self.trainer = Trainer(
             model=self.model,
