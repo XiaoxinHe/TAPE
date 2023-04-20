@@ -14,7 +14,7 @@ class BertClassifier(PreTrainedModel):
         self.dropout = nn.Dropout(dropout)
         self.feat_shrink = feat_shrink
         hidden_dim = model.config.hidden_size
-        self.loss_func = nn.CrossEntropyLoss()
+        self.loss_func = nn.CrossEntropyLoss(label_smoothing=0.3, reduction='mean')
 
         if feat_shrink:
             self.feat_shrink_layer = nn.Linear(
@@ -54,7 +54,7 @@ class BertClaInfModel(PreTrainedModel):
         self.bert_classifier = model
         self.emb, self.pred = emb, pred
         self.feat_shrink = feat_shrink
-        self.loss_func = nn.CrossEntropyLoss()
+        self.loss_func = nn.CrossEntropyLoss(label_smoothing=0.3, reduction='mean')
 
     @torch.no_grad()
     def forward(self,

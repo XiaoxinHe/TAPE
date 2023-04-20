@@ -48,9 +48,12 @@ class LMTrainer():
         self.data = data
         self.inf_dataset = dataset
 
+    @time_logger
     def train(self):
-        train_steps = self.num_nodes // self.batch_size + 1
-        eval_steps = self.eval_patience // self.batch_size
+        # Define training parameters
+        eq_batch_size = self.batch_size * 4
+        train_steps = self.num_nodes // eq_batch_size + 1
+        eval_steps = self.eval_patience // eq_batch_size
         warmup_steps = int(self.warmup_epochs * train_steps)
 
         # Define pretrained tokenizer and model
@@ -94,6 +97,7 @@ class LMTrainer():
         # Train pre-trained model
         self.trainer.train()
         torch.save(self.model.state_dict(), init_path(self.ckpt))
+        print(f'LM saved to {self.ckpt}')
 
     @time_logger
     @torch.no_grad()
