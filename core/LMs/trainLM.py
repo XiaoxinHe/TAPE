@@ -18,6 +18,7 @@ if __name__ == "__main__":
     parser.add_argument('--dropout', type=float, default=0.3)
     parser.add_argument('--att_dropout', type=float, default=0.1)
     parser.add_argument('--cla_dropout', type=float, default=0.4)
+    parser.add_argument('--use_gpt', action='store_true')
 
     args = parser.parse_args()
     print(args)

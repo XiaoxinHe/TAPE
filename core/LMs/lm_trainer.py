@@ -27,10 +27,13 @@ class LMTrainer():
         self.eval_patience = args.eval_patience
         self.lr = args.lr
 
-        self.ckpt = f"output/{self.dataset_name}/{self.model_name}.ckpt"
+        self.use_gpt_str = "2" if args.use_gpt else ""
+        self.ckpt = f"output/{self.dataset_name}/{self.model_name}.ckpt{self.use_gpt_str}"
+        self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
 
         # Preprocess data
-        data, text = load_data(dataset=self.dataset_name, use_text=True)
+        data, text = load_data(dataset=self.dataset_name,
+                               use_text=True, use_gpt=args.use_gpt)
         self.num_nodes = data.x.size(0)
         self.n_labels = data.y.unique().size(0)
 
@@ -66,7 +69,7 @@ class LMTrainer():
 
         # Define Trainer
         args = TrainingArguments(
-            output_dir=f'output/{self.dataset_name}/{self.model_name}',
+            output_dir=self.output_dir,
             do_train=True,
             do_eval=True,
             eval_steps=eval_steps,
@@ -102,11 +105,12 @@ class LMTrainer():
     @time_logger
     @torch.no_grad()
     def eval_and_save(self):
-        emb = np.memmap(init_path(f"output/{self.dataset_name}/{self.model_name}.emb"),
+
+        emb = np.memmap(init_path(f"output/{self.dataset_name}/{self.model_name}.emb{self.use_gpt_str}"),
                         dtype=np.float16,
                         mode='w+',
                         shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else 768))
-        pred = np.memmap(init_path(f"output/{self.dataset_name}/{self.model_name}.pred"),
+        pred = np.memmap(init_path(f"output/{self.dataset_name}/{self.model_name}.pred{self.use_gpt_str}"),
                          dtype=np.float16,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))
@@ -115,7 +119,7 @@ class LMTrainer():
             self.model, emb, pred, feat_shrink=self.feat_shrink)
         inf_model.eval()
         inference_args = TrainingArguments(
-            output_dir=f'output/{self.dataset_name}/{self.model_name}',
+            output_dir=self.output_dir,
             do_train=False,
             do_predict=True,
             per_device_eval_batch_size=self.batch_size*8,

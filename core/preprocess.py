@@ -2,6 +2,8 @@ from transformers import BertTokenizer
 from torch_geometric.transforms import ToSparseTensor, ToUndirected, Compose
 import time
 import torch
+import os
+import json
 
 
 def _preprocess(input_text, tokenizer):
@@ -21,7 +23,7 @@ def _preprocess(input_text, tokenizer):
     )
 
 
-def preprocessing(dataset, use_text=True):
+def preprocessing(dataset, use_text=True, use_gpt=False):
 
     if dataset == 'cora':
         from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
@@ -34,10 +36,22 @@ def preprocessing(dataset, use_text=True):
     elif dataset == 'ogbn-products':
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
-    data, text = get_raw_text(use_text)
-
     if not use_text:
         return data
+
+    if use_gpt:
+        folder_path = 'gpt_responses/{}'.format(dataset)
+        print(f"using gpt: {folder_path}")
+        n = data.y.shape[0]
+        text = []
+        for i in range(n):
+            filename = str(i) + '.json'
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, 'r') as file:
+                json_data = json.load(file)
+                text.append(json_data['choices'][0]['message']['content'])
+    else:
+        data, text = get_raw_text(use_text)
 
     if "ogbn" in dataset:
         trans = Compose([ToUndirected(), ToSparseTensor()])

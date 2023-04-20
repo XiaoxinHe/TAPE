@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+import os
+import json
 
 
 def compute_metrics(p):
@@ -85,7 +87,7 @@ def compute_kd_loss2(emb, pred, labels, emb_t, pred_t, pl_weight=0.5, is_augment
         return loss
 
 
-def load_data(dataset, use_text=False):
+def load_data(dataset, use_text=False, use_gpt=False):
 
     if dataset == 'cora':
         from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
@@ -98,6 +100,19 @@ def load_data(dataset, use_text=False):
     elif dataset == 'ogbn-products':
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
-    data, text = get_raw_text(use_text)
+    if use_gpt:
+        data, text = get_raw_text(False)
+        folder_path = 'gpt_responses/{}'.format(dataset)
+        print(f"using gpt: {folder_path}")
+        n = data.y.shape[0]
+        text = []
+        for i in range(n):
+            filename = str(i) + '.json'
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, 'r') as file:
+                json_data = json.load(file)
+                text.append(json_data['choices'][0]['message']['content'])
+    else:
+        data, text = get_raw_text(use_text)
 
     return data, text
