@@ -1,7 +1,20 @@
-from sklearn.metrics import roc_auc_score
-import pandas as pd
-import os
 import numpy as np
+
+
+def load_data(dataset):
+    if dataset == 'cora':
+        from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
+    elif dataset == 'pubmed':
+        from core.data_utils.load_pubmed import get_raw_text_pubmed as get_raw_text
+    elif dataset == 'citeseer':
+        from core.data_utils.load_citeseer import get_raw_text_citeseer as get_raw_text
+    elif dataset == 'ogbn-arxiv':
+        from core.data_utils.load_arxiv import get_raw_text_arxiv as get_raw_text
+    elif dataset == 'ogbn-products':
+        from core.data_utils.load_products import get_raw_text_products as get_raw_text
+
+    data, text = get_raw_text(False)
+    return data
 
 
 def get_gnn_trainer(model):
@@ -20,15 +33,6 @@ def get_gnn_trainer(model):
     else:
         raise ValueError(f'GNN-Trainer for model {model} is not defined')
     return GNNTrainer
-
-
-def load_ogb_graph_structure_only(dataset):
-    from ogb.nodeproppred import DglNodePropPredDataset
-    data = DglNodePropPredDataset(dataset, root='dataset')
-    g, labels = data[0]
-    split_idx = data.get_idx_split()
-    labels = labels.squeeze().numpy()
-    return g, labels, split_idx
 
 
 class Evaluator:

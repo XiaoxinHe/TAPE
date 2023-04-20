@@ -28,8 +28,8 @@ class LMTrainer():
         self.lr = args.lr
 
         self.use_gpt_str = "2" if args.use_gpt else ""
-        self.ckpt = f"output/{self.dataset_name}/{self.model_name}.ckpt{self.use_gpt_str}"
         self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
+        self.ckpt = f"prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.ckpt"
 
         # Preprocess data
         data, text = load_data(dataset=self.dataset_name,
@@ -106,11 +106,11 @@ class LMTrainer():
     @torch.no_grad()
     def eval_and_save(self):
 
-        emb = np.memmap(init_path(f"output/{self.dataset_name}/{self.model_name}.emb{self.use_gpt_str}"),
+        emb = np.memmap(init_path(f"output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.emb"),
                         dtype=np.float16,
                         mode='w+',
                         shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else 768))
-        pred = np.memmap(init_path(f"output/{self.dataset_name}/{self.model_name}.pred{self.use_gpt_str}"),
+        pred = np.memmap(init_path(f"output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.pred"),
                          dtype=np.float16,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))

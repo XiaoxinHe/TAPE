@@ -1,10 +1,10 @@
-import numpy as np
+from core.GNNs.gnn_utils import load_data
 import torch
 from time import time
-from core.GNNs.GCN.model import GCN, SAGE
+from core.GNNs.GCN.model import GCN
+from core.GNNs.SAGE.model import SAGE
 from core.utils.modules.early_stopper import EarlyStopping
-from core.preprocess import preprocessing
-
+import numpy as np
 
 early_stop = 50
 LOG_FREQ = 10
@@ -38,25 +38,27 @@ class GNNTrainer():
         self.combine = args.combine
 
         # ! Load data
-        data = preprocessing(self.dataset_name, use_text=False)
+        data = load_data(self.dataset_name)
+
+        data = data.to(self.device)
         self.num_nodes = data.x.shape[0]
         self.num_classes = data.y.unique().size(0)
 
         # ! Init gnn feature
-        # feature = np.memmap(f"output/{self.dataset_name}/{self.lm_model_name}.emb",
-        #                     mode='r',
-        #                     dtype=np.float16,
-        #                     shape=(self.num_nodes, self.hidden_dim))
-        # feature2 = np.memmap(f"output/{self.dataset_name}/{self.lm_model_name}.emb2",
-        #                      mode='r',
-        #                      dtype=np.float16,
-        #                      shape=(self.num_nodes, self.hidden_dim))
+        feature = np.memmap(f"output/{self.dataset_name}/{self.lm_model_name}.emb",
+                            mode='r',
+                            dtype=np.float16,
+                            shape=(self.num_nodes, 768))
+        feature2 = np.memmap(f"output/{self.dataset_name}/{self.lm_model_name}.emb2",
+                             mode='r',
+                             dtype=np.float16,
+                             shape=(self.num_nodes, 768))
 
-        # feature = torch.Tensor(np.array(feature))
-        # feature2 = torch.Tensor(np.array(feature2))
-        # self.features = _process(
-        #     feature, feature2, self.combine).to(self.device)
-        self.features = data.x.to(self.device)
+        feature = torch.Tensor(np.array(feature))
+        feature2 = torch.Tensor(np.array(feature2))
+        self.features = _process(
+            feature, feature2, self.combine).to(self.device)
+        # self.features = data.x.to(self.device)
         data.y = data.y.squeeze()
         self.data = data.to(self.device)
         # ! Trainer init
@@ -65,7 +67,6 @@ class GNNTrainer():
                              hidden_channels=self.hidden_dim,
                              out_channels=self.num_classes,
                              num_layers=self.num_layers,
-                             #  input_norm=args.input_norm,
                              dropout=self.dropout).to(self.device)
 
         elif self.gnn_model_name == "SAGE":
@@ -73,15 +74,13 @@ class GNNTrainer():
                               hidden_channels=self.hidden_dim,
                               out_channels=self.num_classes,
                               num_layers=self.num_layers,
-                              input_norm=args.input_norm,
                               dropout=self.dropout).to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
-        trainable_params = sum(
-            p.numel() for p in self.model.parameters() if p.requires_grad
-        )
+        trainable_params = sum(p.numel()
+                               for p in self.model.parameters() if p.requires_grad)
 
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
         self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}.pt"
