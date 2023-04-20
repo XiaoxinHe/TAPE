@@ -36,6 +36,8 @@ def preprocessing(dataset, use_text=True, use_gpt=False):
     elif dataset == 'ogbn-products':
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
+    data, text = get_raw_text(use_text)
+
     if not use_text:
         return data
 
@@ -50,8 +52,6 @@ def preprocessing(dataset, use_text=True, use_gpt=False):
             with open(file_path, 'r') as file:
                 json_data = json.load(file)
                 text.append(json_data['choices'][0]['message']['content'])
-    else:
-        data, text = get_raw_text(use_text)
 
     if "ogbn" in dataset:
         trans = Compose([ToUndirected(), ToSparseTensor()])

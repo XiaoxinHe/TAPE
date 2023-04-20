@@ -1,64 +1,96 @@
 import numpy as np
 import torch
 from time import time
-from core.GNNs.GCN.model import GCN
+from core.GNNs.GCN.model import GCN, SAGE
 from core.utils.modules.early_stopper import EarlyStopping
 from core.preprocess import preprocessing
 
 
 early_stop = 50
+LOG_FREQ = 10
+
+
+def _process(feature1, feature2, combine):
+    if combine == 'sum':
+        return feature1 + feature2
+    elif combine == 'prod':
+        return feature1*feature2
+    elif combine == 'concat':
+        return torch.cat([feature1, feature2], dim=1)
+    elif combine == 'f2':
+        return feature2
+    else:
+        return feature1
 
 
 class GNNTrainer():
     def __init__(self, args):
         self.device = args.device
-        self.stage = args.stage
-        self.dataset = args.dataset
-        self.epochs = 200
-        f_type = args.f_type
+        self.gnn_model_name = args.gnn_model_name
+        self.lm_model_name = args.lm_model_name
+        self.dataset_name = args.dataset_name
+        self.hidden_dim = args.hidden_dim
+        self.num_layers = args.num_layers
+        self.dropout = args.dropout
+        self.lr = args.lr
+        self.combine = args.combine
+        self.epochs = args.epochs
+        self.combine = args.combine
 
         # ! Load data
-        data = preprocessing(self.dataset, use_text=False)
+        data = preprocessing(self.dataset_name, use_text=False)
+        self.num_nodes = data.x.shape[0]
+        self.num_classes = data.y.unique().size(0)
 
         # ! Init gnn feature
-        if f_type == 'z':
-            emb = np.memmap(f'output/{self.dataset}/z.emb{self.stage-1}', mode='r',
-                            dtype=np.float32, shape=(data.x.shape[0], 128))
-            emb = torch.Tensor(np.array(emb))
-            self.features = emb.to(self.device)
-        elif f_type == 'lm_x':
-            emb = np.memmap(f'output/{self.dataset}/bert.emb0', mode='r',
-                            dtype=np.float32, shape=(data.x.shape[0], 128))
-            emb = torch.Tensor(np.array(emb))
-            self.features = emb.to(self.device)
-        else:
-            self.features = data.x.to(self.device)
+        # feature = np.memmap(f"output/{self.dataset_name}/{self.lm_model_name}.emb",
+        #                     mode='r',
+        #                     dtype=np.float16,
+        #                     shape=(self.num_nodes, self.hidden_dim))
+        # feature2 = np.memmap(f"output/{self.dataset_name}/{self.lm_model_name}.emb2",
+        #                      mode='r',
+        #                      dtype=np.float16,
+        #                      shape=(self.num_nodes, self.hidden_dim))
 
+        # feature = torch.Tensor(np.array(feature))
+        # feature2 = torch.Tensor(np.array(feature2))
+        # self.features = _process(
+        #     feature, feature2, self.combine).to(self.device)
+        self.features = data.x.to(self.device)
+        data.y = data.y.squeeze()
         self.data = data.to(self.device)
         # ! Trainer init
-        self.model = GCN(in_channels=self.features.shape[1],
-                         hidden_channels=128,
-                         out_channels=data.y.unique().size(0),
-                         num_layers=4,
-                         dropout=0.0).to(self.device)
-        if self.stage > 1:
-            self.model.load_state_dict(torch.load(
-                f"output/{self.dataset}/GNN{self.stage-1}.pt"))
+        if self.gnn_model_name == "GCN":
+            self.model = GCN(in_channels=self.features.shape[1],
+                             hidden_channels=self.hidden_dim,
+                             out_channels=self.num_classes,
+                             num_layers=self.num_layers,
+                             #  input_norm=args.input_norm,
+                             dropout=self.dropout).to(self.device)
+
+        elif self.gnn_model_name == "SAGE":
+            self.model = SAGE(in_channels=self.features.shape[1],
+                              hidden_channels=self.hidden_dim,
+                              out_channels=self.num_classes,
+                              num_layers=self.num_layers,
+                              input_norm=args.input_norm,
+                              dropout=self.dropout).to(self.device)
+
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=0.01, weight_decay=0.0)
+            self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
         trainable_params = sum(
             p.numel() for p in self.model.parameters() if p.requires_grad
         )
 
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
-        self.ckpt = f"output/{self.dataset}/GNN{self.stage}.pt"
+        self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}.pt"
         self.stopper = EarlyStopping(
             patience=early_stop, path=self.ckpt) if early_stop > 0 else None
         self.loss_func = torch.nn.CrossEntropyLoss()
 
         from core.GNNs.gnn_utils import Evaluator
-        self._evaluator = Evaluator(name=self.dataset)
+        self._evaluator = Evaluator(name=self.dataset_name)
         self.evaluator = lambda pred, labels: self._evaluator.eval(
             {"y_pred": pred.argmax(dim=-1, keepdim=True),
              "y_true": labels.view(-1, 1)}
@@ -105,9 +137,10 @@ class GNNTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
-            log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4), 'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
-                        'ES': es_str, 'GNN_epoch': epoch}
-            print(log_dict)
+            if epoch % 10 == 0:
+                log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4), 'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
+                            'ES': es_str, 'GNN_epoch': epoch}
+                print(log_dict)
 
         # ! Finished training, load checkpoints
         if self.stopper is not None:
