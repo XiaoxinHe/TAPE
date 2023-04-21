@@ -39,32 +39,31 @@ class GNNTrainer():
         self.combine = args.combine
 
         # ! Load data
-        dataset = load_data(self.dataset_name)
-        data = dataset[0]
-        self.train_mask = dataset.train_mask
-        self.val_mask = dataset.val_mask
-        self.test_mask = dataset.test_mask
+        data = load_data(self.dataset_name)
 
-        data = data.to(self.device)
         self.num_nodes = data.x.shape[0]
         self.num_classes = data.y.unique().size(0)
 
         # ! Init gnn feature
-        feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
-                            mode='r',
-                            dtype=np.float16,
-                            shape=(self.num_nodes, 768))
-        feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
-                             mode='r',
-                             dtype=np.float16,
-                             shape=(self.num_nodes, 768))
+        if args.use_ogb:
+            print("Loading OGB features...")
+            self.features = data.x.to(self.device)
+        else:
+            print("Loading pretrained LM features...")
+            feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
+                                mode='r',
+                                dtype=np.float16,
+                                shape=(self.num_nodes, 768))
+            feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
+                                 mode='r',
+                                 dtype=np.float16,
+                                 shape=(self.num_nodes, 768))
 
-        feature = torch.Tensor(np.array(feature))
-        feature2 = torch.Tensor(np.array(feature2))
-        self.features = _process(
-            feature, feature2, self.combine).to(self.device)
+            feature = torch.Tensor(np.array(feature))
+            feature2 = torch.Tensor(np.array(feature2))
+            self.features = _process(
+                feature, feature2, self.combine).to(self.device)
 
-        # self.features = data.x.to(self.device)
         data.y = data.y.squeeze()
         self.data = data.to(self.device)
         # ! Trainer init
@@ -112,9 +111,9 @@ class GNNTrainer():
         # ! Specific
         logits = self._forward(self.features, self.data.edge_index)
         loss = self.loss_func(
-            logits[self.train_mask], self.data.y[self.train_mask])
+            logits[self.data.train_mask], self.data.y[self.data.train_mask])
         train_acc = self.evaluator(
-            logits[self.train_mask], self.data.y[self.train_mask])
+            logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss.backward()
         self.optimizer.step()
 
@@ -125,9 +124,9 @@ class GNNTrainer():
         self.model.eval()
         logits = self._forward(self.features, self.data.edge_index)
         val_acc = self.evaluator(
-            logits[self.val_mask], self.data.y[self.val_mask])
+            logits[self.data.val_mask], self.data.y[self.data.val_mask])
         test_acc = self.evaluator(
-            logits[self.test_mask], self.data.y[self.test_mask])
+            logits[self.data.test_mask], self.data.y[self.data.test_mask])
         return val_acc, test_acc, logits
 
     def train(self):

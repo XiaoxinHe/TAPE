@@ -20,8 +20,10 @@ if __name__ == "__main__":
     parser.add_argument('--input_norm', type=str, default='T')
     parser.add_argument('--runs', type=int, default=4)
     parser.add_argument('--use_dgl', action='store_true')
+    parser.add_argument('--use_ogb', action='store_true')
 
     args = parser.parse_args()
+    print(args)
 
     res = []
     for _ in range(args.runs):

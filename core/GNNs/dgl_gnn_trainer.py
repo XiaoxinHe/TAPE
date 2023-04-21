@@ -60,20 +60,24 @@ class DGLGNNTrainer():
         self.num_classes = self.y.unique().size(0)
 
         # ! Init gnn feature
-        feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
-                            mode='r',
-                            dtype=np.float16,
-                            shape=(self.num_nodes, 768))
-        feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
-                             mode='r',
-                             dtype=np.float16,
-                             shape=(self.num_nodes, 768))
+        if args.use_ogb:
+            print("Loading OGB features...")
+            self.features = data.ndata['feat'].to(self.device)
+        else:
+            print("Loading pretrained LM features...")
+            feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
+                                mode='r',
+                                dtype=np.float16,
+                                shape=(self.num_nodes, 768))
+            feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
+                                 mode='r',
+                                 dtype=np.float16,
+                                 shape=(self.num_nodes, 768))
 
-        feature = torch.Tensor(np.array(feature))
-        feature2 = torch.Tensor(np.array(feature2))
-        self.features = _process(
-            feature, feature2, self.combine).to(self.device)
-        # self.features = data.x.to(self.device)
+            feature = torch.Tensor(np.array(feature))
+            feature2 = torch.Tensor(np.array(feature2))
+            self.features = _process(
+                feature, feature2, self.combine).to(self.device)
 
         self.data = data.to(self.device)
         # ! Trainer init
