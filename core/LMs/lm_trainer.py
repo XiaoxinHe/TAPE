@@ -29,7 +29,7 @@ class LMTrainer():
 
         self.use_gpt_str = "2" if args.use_gpt else ""
         self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
-        self.ckpt = f"prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.ckpt"
+        self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
 
         # Preprocess data
         pyg_dataset, text = load_data(dataset=self.dataset_name,
@@ -103,18 +103,17 @@ class LMTrainer():
 
         # Train pre-trained model
         self.trainer.train()
-        torch.save(self.model.state_dict(), init_path(self.ckpt))
-        print(f'LM saved to {self.ckpt}')
+        torch.save(self.model.state_dict(), init_path(f"{self.ckpt_dir}.ckpt"))
+        print(f'LM saved to {self.ckpt_dir}.ckpt')
 
     @time_logger
     @torch.no_grad()
     def eval_and_save(self):
-
-        emb = np.memmap(init_path(f"output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.emb"),
+        emb = np.memmap(init_path(f"{self.ckpt_dir}.emb"),
                         dtype=np.float16,
                         mode='w+',
                         shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else 768))
-        pred = np.memmap(init_path(f"output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.pred"),
+        pred = np.memmap(init_path(f"{self.ckpt_dir}.pred"),
                          dtype=np.float16,
                          mode='w+',
                          shape=(self.num_nodes, self.n_labels))
