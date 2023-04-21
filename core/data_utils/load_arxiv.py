@@ -17,9 +17,9 @@ def get_raw_text_arxiv(use_text=False):
     train_mask[idx_splits['train']] = True
     val_mask[idx_splits['valid']] = True
     test_mask[idx_splits['test']] = True
-    dataset.train_mask = train_mask
-    dataset.val_mask = val_mask
-    dataset.test_mask = test_mask
+    data.train_mask = train_mask
+    data.val_mask = val_mask
+    data.test_mask = test_mask
 
     data.edge_index = data.adj_t.to_symmetric()
     if not use_text:
