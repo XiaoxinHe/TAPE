@@ -49,14 +49,14 @@ def get_pubmed_casestudy(corrected=False):
         data.val_id = [i for i in data.val_id if not is_mistake[i]]
         data.test_id = [i for i in data.test_id if not is_mistake[i]]
 
-    dataset.train_mask = torch.tensor(
+    data.train_mask = torch.tensor(
         [x in data.train_id for x in range(data.num_nodes)])
-    dataset.val_mask = torch.tensor(
+    data.val_mask = torch.tensor(
         [x in data.val_id for x in range(data.num_nodes)])
-    dataset.test_mask = torch.tensor(
+    data.test_mask = torch.tensor(
         [x in data.test_id for x in range(data.num_nodes)])
 
-    return dataset, data_pubid
+    return data, data_pubid
 
 
 def parse_pubmed():
@@ -137,9 +137,9 @@ def parse_pubmed():
 
 
 def get_raw_text_pubmed(use_text=False):
-    dataset, data_pubid = get_pubmed_casestudy()
+    data, data_pubid = get_pubmed_casestudy()
     if not use_text:
-        return dataset, None
+        return data, None
 
     f = open('dataset/Pubmed-Diabetes/pubmed.json')
     pubmed = json.load(f)
@@ -151,4 +151,4 @@ def get_raw_text_pubmed(use_text=False):
     for ti, ab in zip(TI, AB):
         t = 'Title: ' + ti + '\n'+'Abstract: ' + ab
         text.append(t)
-    return dataset, text
+    return data, text

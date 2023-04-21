@@ -101,8 +101,7 @@ def load_data(dataset, use_text=False, use_gpt=False):
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
     if use_gpt:
-        dataset, text = get_raw_text(False)
-        data = dataset[0]
+        data, text = get_raw_text(False)
         folder_path = 'gpt_responses/{}'.format(dataset)
         print(f"using gpt: {folder_path}")
         n = data.y.shape[0]
@@ -114,6 +113,6 @@ def load_data(dataset, use_text=False, use_gpt=False):
                 json_data = json.load(file)
                 text.append(json_data['choices'][0]['message']['content'])
     else:
-        dataset, text = get_raw_text(use_text)
+        data, text = get_raw_text(use_text)
 
-    return dataset, text
+    return data, text

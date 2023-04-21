@@ -21,9 +21,9 @@ def get_raw_text_arxiv(use_text=False):
     dataset.val_mask = val_mask
     dataset.test_mask = test_mask
 
-    dataset[0].edge_index = data.adj_t.to_symmetric()
+    data.edge_index = data.adj_t.to_symmetric()
     if not use_text:
-        return dataset, None
+        return data, None
 
     nodeidx2paperid = pd.read_csv(
         'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
@@ -35,4 +35,4 @@ def get_raw_text_arxiv(use_text=False):
     for ti, ab in zip(df['title'], df['abs']):
         t = 'Title: ' + ti + '\n' + 'Abstract: ' + ab
         text.append(t)
-    return dataset, text
+    return data, text

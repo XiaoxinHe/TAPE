@@ -32,28 +32,23 @@ class LMTrainer():
         self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
 
         # Preprocess data
-        pyg_dataset, text = load_data(dataset=self.dataset_name,
-                                      use_text=True, use_gpt=args.use_gpt)
-        data = pyg_dataset[0]
+        data, text = load_data(dataset=self.dataset_name,
+                               use_text=True, use_gpt=args.use_gpt)
+        self.data = data
         self.num_nodes = data.x.size(0)
         self.n_labels = data.y.unique().size(0)
-        self.train_mask = pyg_dataset.train_mask
-        self.val_mask = pyg_dataset.val_mask
-        self.test_mask = pyg_dataset.test_mask
 
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
         dataset = Dataset(X, data.y.tolist())
+        self.inf_dataset = dataset
 
         self.train_dataset = torch.utils.data.Subset(
-            dataset, self.train_mask.nonzero().squeeze().tolist())
+            dataset, self.data.train_mask.nonzero().squeeze().tolist())
         self.val_dataset = torch.utils.data.Subset(
-            dataset, self.val_mask.nonzero().squeeze().tolist())
+            dataset, self.data.val_mask.nonzero().squeeze().tolist())
         self.test_dataset = torch.utils.data.Subset(
-            dataset, self.test_mask.nonzero().squeeze().tolist())
-
-        self.data = data
-        self.inf_dataset = dataset
+            dataset, self.data.test_mask.nonzero().squeeze().tolist())
 
     @time_logger
     def train(self):
@@ -149,7 +144,7 @@ class LMTrainer():
             np.argmax(pred[x], -1), self.data.y[x])
 
         res = {
-            'lm_train_acc': eval(self.train_mask),
-            'lm_val_acc': eval(self.val_mask),
-            'lm_test_acc': eval(self.test_mask)}
+            'lm_train_acc': eval(self.data.train_mask),
+            'lm_val_acc': eval(self.data.val_mask),
+            'lm_test_acc': eval(self.data.test_mask)}
         print(res)
