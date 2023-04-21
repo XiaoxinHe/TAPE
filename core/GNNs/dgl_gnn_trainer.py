@@ -1,8 +1,7 @@
 from core.GNNs.gnn_utils import load_data
 import torch
 from time import time
-from core.GNNs.GCN.model import GCN
-from core.GNNs.SAGE.model import SAGE
+from core.GNNs.RevGAT.model import RevGAT
 from core.utils.modules.early_stopper import EarlyStopping
 import numpy as np
 
@@ -24,7 +23,7 @@ def _process(feature1, feature2, combine):
         return feature1
 
 
-class GNNTrainer():
+class DGLGNNTrainer():
     def __init__(self, args):
         self.device = args.device
         self.gnn_model_name = args.gnn_model_name
@@ -36,18 +35,29 @@ class GNNTrainer():
         self.lr = args.lr
         self.combine = args.combine
         self.epochs = args.epochs
-        self.combine = args.combine
+
+        self.n_heads = 3
+        self.input_drop = 0.25
+        self.attn_drop = 0.0
+        self.edge_drop = 0.3
+        self.alpha = 0.5
+        self.temp = 1.0
+        self.use_labels = False
+        self.no_attn_dst = True
+        self.use_norm = False
+        self.group = 2
+        self.input_norm = 'T'
 
         # ! Load data
-        dataset = load_data(self.dataset_name)
+        dataset = load_data(self.dataset_name, use_dgl=True)
         data = dataset[0]
         self.train_mask = dataset.train_mask
         self.val_mask = dataset.val_mask
         self.test_mask = dataset.test_mask
+        self.y = data.ndata['label'].squeeze().to(self.device)
 
-        data = data.to(self.device)
-        self.num_nodes = data.x.shape[0]
-        self.num_classes = data.y.unique().size(0)
+        self.num_nodes = data.ndata['feat'].shape[0]
+        self.num_classes = self.y.unique().size(0)
 
         # ! Init gnn feature
         feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
@@ -63,24 +73,26 @@ class GNNTrainer():
         feature2 = torch.Tensor(np.array(feature2))
         self.features = _process(
             feature, feature2, self.combine).to(self.device)
-
         # self.features = data.x.to(self.device)
-        data.y = data.y.squeeze()
+
         self.data = data.to(self.device)
         # ! Trainer init
-        if self.gnn_model_name == "GCN":
-            self.model = GCN(in_channels=self.features.shape[1],
-                             hidden_channels=self.hidden_dim,
-                             out_channels=self.num_classes,
-                             num_layers=self.num_layers,
-                             dropout=self.dropout).to(self.device)
-
-        elif self.gnn_model_name == "SAGE":
-            self.model = SAGE(in_channels=self.features.shape[1],
-                              hidden_channels=self.hidden_dim,
-                              out_channels=self.num_classes,
-                              num_layers=self.num_layers,
-                              dropout=self.dropout).to(self.device)
+        if self.gnn_model_name == "RevGAT":
+            self.model = RevGAT(in_feats=self.features.shape[1],
+                                n_classes=self.num_classes,
+                                n_hidden=self.hidden_dim,
+                                n_layers=self.num_layers,
+                                n_heads=self.n_heads,
+                                activation=torch.nn.Mish(),
+                                dropout=self.dropout,
+                                input_drop=self.input_drop,
+                                attn_drop=self.attn_drop,
+                                edge_drop=self.edge_drop,
+                                use_attn_dst=not self.no_attn_dst,
+                                use_symmetric_norm=self.use_norm,
+                                group=self.group,
+                                input_norm=self.input_norm == 'T'
+                                ).to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=0.0)
@@ -101,8 +113,8 @@ class GNNTrainer():
              "y_true": labels.view(-1, 1)}
         )["acc"]
 
-    def _forward(self, x, edge_index):
-        logits = self.model(x, edge_index)  # small-graph
+    def _forward(self, *args):
+        logits = self.model(*args)  # small-graph
         return logits
 
     def _train(self):
@@ -110,11 +122,11 @@ class GNNTrainer():
         self.model.train()
         self.optimizer.zero_grad()
         # ! Specific
-        logits = self._forward(self.features, self.data.edge_index)
+        logits = self._forward(self.data, self.features)
         loss = self.loss_func(
-            logits[self.train_mask], self.data.y[self.train_mask])
+            logits[self.train_mask], self.y[self.train_mask])
         train_acc = self.evaluator(
-            logits[self.train_mask], self.data.y[self.train_mask])
+            logits[self.train_mask], self.y[self.train_mask])
         loss.backward()
         self.optimizer.step()
 
@@ -123,11 +135,11 @@ class GNNTrainer():
     @ torch.no_grad()
     def _evaluate(self):
         self.model.eval()
-        logits = self._forward(self.features, self.data.edge_index)
+        logits = self._forward(self.data, self.features)
         val_acc = self.evaluator(
-            logits[self.val_mask], self.data.y[self.val_mask])
+            logits[self.val_mask], self.y[self.val_mask])
         test_acc = self.evaluator(
-            logits[self.test_mask], self.data.y[self.test_mask])
+            logits[self.test_mask], self.y[self.test_mask])
         return val_acc, test_acc, logits
 
     def train(self):

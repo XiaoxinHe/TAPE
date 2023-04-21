@@ -32,21 +32,25 @@ class LMTrainer():
         self.ckpt = f"prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}.ckpt"
 
         # Preprocess data
-        data, text = load_data(dataset=self.dataset_name,
-                               use_text=True, use_gpt=args.use_gpt)
+        pyg_dataset, text = load_data(dataset=self.dataset_name,
+                                      use_text=True, use_gpt=args.use_gpt)
+        data = pyg_dataset[0]
         self.num_nodes = data.x.size(0)
         self.n_labels = data.y.unique().size(0)
+        self.train_mask = pyg_dataset.train_mask
+        self.val_mask = pyg_dataset.val_mask
+        self.test_mask = pyg_dataset.test_mask
 
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
         dataset = Dataset(X, data.y.tolist())
 
         self.train_dataset = torch.utils.data.Subset(
-            dataset, data.train_mask.nonzero().squeeze().tolist())
+            dataset, self.train_mask.nonzero().squeeze().tolist())
         self.val_dataset = torch.utils.data.Subset(
-            dataset, data.val_mask.nonzero().squeeze().tolist())
+            dataset, self.val_mask.nonzero().squeeze().tolist())
         self.test_dataset = torch.utils.data.Subset(
-            dataset, data.test_mask.nonzero().squeeze().tolist())
+            dataset, self.test_mask.nonzero().squeeze().tolist())
 
         self.data = data
         self.inf_dataset = dataset
@@ -146,7 +150,7 @@ class LMTrainer():
             np.argmax(pred[x], -1), self.data.y[x])
 
         res = {
-            'lm_train_acc': eval(self.data.train_mask),
-            'lm_val_acc': eval(self.data.val_mask),
-            'lm_test_acc': eval(self.data.test_mask)}
+            'lm_train_acc': eval(self.train_mask),
+            'lm_val_acc': eval(self.val_mask),
+            'lm_test_acc': eval(self.test_mask)}
         print(res)

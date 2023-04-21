@@ -1,6 +1,7 @@
 import argparse
 from core.GNNs.gnn_trainer import GNNTrainer
-
+from core.GNNs.dgl_gnn_trainer import DGLGNNTrainer
+import pandas as pd
 
 if __name__ == "__main__":
     # ! Load data and train
@@ -17,9 +18,21 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--input_norm', type=str, default='T')
+    parser.add_argument('--runs', type=int, default=4)
+    parser.add_argument('--use_dgl', action='store_true')
 
     args = parser.parse_args()
 
-    trainer = GNNTrainer(args)
-    trainer.train()
-    trainer.eval_and_save()
+    res = []
+    for _ in range(args.runs):
+        if args.use_dgl:
+            trainer = DGLGNNTrainer(args)
+        else:
+            trainer = GNNTrainer(args)
+        trainer.train()
+        res.append(trainer.eval_and_save())
+    df = pd.DataFrame(res)
+
+    print(f"val acc: {df['val_acc'].mean():.4f} ± {df['val_acc'].std():.4f}")
+    print(
+        f"test acc: {df['test_acc'].mean():.4f} ± {df['test_acc'].std():.4f}")

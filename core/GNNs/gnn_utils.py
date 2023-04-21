@@ -1,7 +1,43 @@
 import numpy as np
 
+import dgl
+import torch
+from torch.utils.data import Dataset as TorchDataset
 
-def load_data(dataset):
+
+class CustomDGLDataset(TorchDataset):
+    def __init__(self, pyg_dataset):
+        self.pyg_dataset = pyg_dataset
+
+    def __len__(self):
+        return len(self.pyg_dataset)
+
+    def __getitem__(self, idx):
+        data = self.pyg_dataset[idx]
+        g = dgl.DGLGraph()
+        g.add_nodes(data.num_nodes)
+        g.add_edges(data.edge_index[0], data.edge_index[1])
+        g.ndata['feat'] = torch.FloatTensor(data.x)
+        g.ndata['label'] = torch.LongTensor(data.y)
+        if data.edge_attr is not None:
+            g.edata['feat'] = torch.FloatTensor(data.edge_attr)
+
+        return g
+
+    @property
+    def train_mask(self):
+        return self.pyg_dataset.train_mask
+
+    @property
+    def val_mask(self):
+        return self.pyg_dataset.val_mask
+
+    @property
+    def test_mask(self):
+        return self.pyg_dataset.test_mask
+
+
+def load_data(dataset, use_dgl=False):
     if dataset == 'cora':
         from core.data_utils.load_cora import get_raw_text_cora as get_raw_text
     elif dataset == 'pubmed':
@@ -13,8 +49,12 @@ def load_data(dataset):
     elif dataset == 'ogbn-products':
         from core.data_utils.load_products import get_raw_text_products as get_raw_text
 
-    data, text = get_raw_text(False)
-    return data
+    dataset, _ = get_raw_text(False)
+
+    if use_dgl:
+        dataset = CustomDGLDataset(dataset)
+
+    return dataset
 
 
 def get_gnn_trainer(model):
