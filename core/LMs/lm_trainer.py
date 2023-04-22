@@ -25,6 +25,7 @@ class LMTrainer():
         self.epochs = args.epochs
         self.warmup_epochs = args.warmup_epochs
         self.eval_patience = args.eval_patience
+        self.grad_acc_steps = args.grad_acc_steps
         self.lr = args.lr
 
         self.use_gpt_str = "2" if args.use_gpt else ""
@@ -78,7 +79,7 @@ class LMTrainer():
             weight_decay=self.weight_decay,
             save_total_limit=1,
             load_best_model_at_end=True,
-            gradient_accumulation_steps=1,
+            gradient_accumulation_steps=self.grad_acc_steps,
             per_device_train_batch_size=self.batch_size,
             per_device_eval_batch_size=self.batch_size*8,
             warmup_steps=warmup_steps,
