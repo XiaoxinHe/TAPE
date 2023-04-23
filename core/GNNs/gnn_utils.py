@@ -6,21 +6,58 @@ from torch.utils.data import Dataset as TorchDataset
 
 
 class CustomDGLDataset(TorchDataset):
-    def __init__(self, pyg_data):
+    def __init__(self, name, pyg_data):
+        self.name = name
         self.pyg_data = pyg_data
 
     def __len__(self):
         return 1
 
+    # def __getitem__(self, idx):
+    #     if self.name == 'ogbn-arxiv':
+    #         from ogb.nodeproppred import DglNodePropPredDataset
+    #         dgl_dataset = DglNodePropPredDataset(name='ogbn-arxiv')
+    #         g, labels = dgl_dataset[0]
+    #         feat = g.ndata['feat']
+    #         g = dgl.to_bidirected(g)
+    #         print(
+    #             f"Using GAT based methods,total edges before adding self-loop {g.number_of_edges()}")
+    #         g = g.remove_self_loop().add_self_loop()
+    #         print(f"Total edges after adding self-loop {g.number_of_edges()}")
+    #         g.ndata['feat'] = feat
+    #         g.ndata['label'] = labels.squeeze()
+    #     else:
+    #         data = self.pyg_data
+    #         g = dgl.DGLGraph()
+    #         g.add_nodes(data.num_nodes)
+    #         g.add_edges(data.edge_index[0], data.edge_index[1])
+    #         g.ndata['feat'] = torch.FloatTensor(data.x)
+    #         g.ndata['label'] = torch.LongTensor(data.y)
+    #         if data.edge_attr is not None:
+    #             g.edata['feat'] = torch.FloatTensor(data.edge_attr)
+    #     return g
+
     def __getitem__(self, idx):
+
         data = self.pyg_data
         g = dgl.DGLGraph()
+        if self.name == 'ogbn-arxiv':
+            edge_index = data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
+        else:
+            edge_index = data.edge_index
         g.add_nodes(data.num_nodes)
-        g.add_edges(data.edge_index[0], data.edge_index[1])
-        g.ndata['feat'] = torch.FloatTensor(data.x)
-        g.ndata['label'] = torch.LongTensor(data.y)
+        g.add_edges(edge_index[0], edge_index[1])
+
         if data.edge_attr is not None:
             g.edata['feat'] = torch.FloatTensor(data.edge_attr)
+        if self.name == 'ogbn-arxiv':
+            g = dgl.to_bidirected(g)
+            print(
+                f"Using GAT based methods,total edges before adding self-loop {g.number_of_edges()}")
+            g = g.remove_self_loop().add_self_loop()
+            print(f"Total edges after adding self-loop {g.number_of_edges()}")
+        g.ndata['feat'] = torch.FloatTensor(data.x)
+        g.ndata['label'] = torch.LongTensor(data.y)
         return g
 
     @property
@@ -51,7 +88,7 @@ def load_data(dataset, use_dgl=False):
     data, _ = get_raw_text(False)
 
     if use_dgl:
-        data = CustomDGLDataset(data)
+        data = CustomDGLDataset(dataset, data)
 
     return data
 

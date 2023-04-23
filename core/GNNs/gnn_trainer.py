@@ -7,7 +7,6 @@ from core.utils.modules.early_stopper import EarlyStopping
 import numpy as np
 
 
-early_stop = 50
 LOG_FREQ = 10
 
 
@@ -90,7 +89,7 @@ class GNNTrainer():
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
         self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}.pt"
         self.stopper = EarlyStopping(
-            patience=early_stop, path=self.ckpt) if early_stop > 0 else None
+            patience=args.early_stop, path=self.ckpt) if args.early_stop > 0 else None
         self.loss_func = torch.nn.CrossEntropyLoss()
 
         from core.GNNs.gnn_utils import Evaluator

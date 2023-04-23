@@ -6,7 +6,6 @@ from core.utils.modules.early_stopper import EarlyStopping
 import numpy as np
 
 
-early_stop = 50
 LOG_FREQ = 10
 
 
@@ -35,14 +34,12 @@ class DGLGNNTrainer():
         self.lr = args.lr
         self.combine = args.combine
         self.epochs = args.epochs
+        self.weight_decay = args.weight_decay
 
         self.n_heads = 3
         self.input_drop = 0.25
         self.attn_drop = 0.0
         self.edge_drop = 0.3
-        self.alpha = 0.5
-        self.temp = 1.0
-        self.use_labels = False
         self.no_attn_dst = True
         self.use_norm = False
         self.group = 2
@@ -51,12 +48,13 @@ class DGLGNNTrainer():
         # ! Load data
         dataset = load_data(self.dataset_name, use_dgl=True)
         data = dataset[0]
+
         self.train_mask = dataset.train_mask
         self.val_mask = dataset.val_mask
         self.test_mask = dataset.test_mask
         self.y = data.ndata['label'].squeeze().to(self.device)
 
-        self.num_nodes = data.ndata['feat'].shape[0]
+        self.num_nodes = data.num_nodes()
         self.num_classes = self.y.unique().size(0)
 
         # ! Init gnn feature
@@ -65,17 +63,24 @@ class DGLGNNTrainer():
             self.features = data.ndata['feat'].to(self.device)
         else:
             print("Loading pretrained LM features...")
-            feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
-                                mode='r',
-                                dtype=np.float16,
-                                shape=(self.num_nodes, 768))
-            feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
-                                 mode='r',
-                                 dtype=np.float16,
-                                 shape=(self.num_nodes, 768))
+            LM_emb_path = f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb"
+            LM_emb_path2 = f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb"
+            feature = torch.from_numpy(np.array(np.memmap(
+                LM_emb_path, mode='r', dtype=np.float16, shape=(self.num_nodes, 768)))).to(torch.float32)
+            feature2 = torch.from_numpy(np.array(np.memmap(
+                LM_emb_path2, mode='r', dtype=np.float16, shape=(self.num_nodes, 768)))).to(torch.float32)
 
-            feature = torch.Tensor(np.array(feature))
-            feature2 = torch.Tensor(np.array(feature2))
+            # feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
+            #                     mode='r',
+            #                     dtype=np.float16,
+            #                     shape=(self.num_nodes, 768))
+            # feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
+            #                      mode='r',
+            #                      dtype=np.float16,
+            #                      shape=(self.num_nodes, 768))
+
+            # feature = torch.Tensor(np.array(feature))
+            # feature2 = torch.Tensor(np.array(feature2))
             self.features = _process(
                 feature, feature2, self.combine).to(self.device)
 
@@ -98,8 +103,8 @@ class DGLGNNTrainer():
                                 input_norm=self.input_norm == 'T'
                                 ).to(self.device)
 
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=self.lr, weight_decay=0.0)
+        self.optimizer = torch.optim.RMSprop(
+            self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
         trainable_params = sum(p.numel()
                                for p in self.model.parameters() if p.requires_grad)
@@ -107,8 +112,8 @@ class DGLGNNTrainer():
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
         self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}.pt"
         self.stopper = EarlyStopping(
-            patience=early_stop, path=self.ckpt) if early_stop > 0 else None
-        self.loss_func = torch.nn.CrossEntropyLoss()
+            patience=args.early_stop, path=self.ckpt) if args.early_stop > 0 else None
+        self.loss_func = torch.nn.CrossEntropyLoss(reduction='mean')
 
         from core.GNNs.gnn_utils import Evaluator
         self._evaluator = Evaluator(name=self.dataset_name)
@@ -149,6 +154,9 @@ class DGLGNNTrainer():
     def train(self):
         # ! Training
         for epoch in range(self.epochs):
+            if epoch <= 50 and self.gnn_model_name == 'RevGAT':
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = self.lr * epoch / 50
             t0, es_str = time(), ''
             loss, train_acc = self._train()
             val_acc, test_acc, _ = self._evaluate()
@@ -158,7 +166,7 @@ class DGLGNNTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
-            if epoch % 10 == 0:
+            if epoch % LOG_FREQ == 0:
                 log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4), 'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
                             'ES': es_str, 'GNN_epoch': epoch}
                 print(log_dict)
