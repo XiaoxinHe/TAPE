@@ -84,6 +84,8 @@ class DGLGNNTrainer():
             self.features = _process(
                 feature, feature2, self.combine).to(self.device)
 
+        # self.preds = torch.load('gpt_labels.pt').to(self.device)
+
         self.data = data.to(self.device)
         # ! Trainer init
         if self.gnn_model_name == "RevGAT":
@@ -183,4 +185,4 @@ class DGLGNNTrainer():
         val_acc, test_acc, logits = self._evaluate()
         res = {'val_acc': val_acc, 'test_acc': test_acc}
         print(res)
-        return res
+        return logits, res

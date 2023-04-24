@@ -11,6 +11,7 @@ LOG_FREQ = 10
 
 
 def _process(feature1, feature2, combine):
+    print(f"!!! using {combine} feature")
     if combine == 'sum':
         return feature1 + feature2
     elif combine == 'prod':
@@ -157,4 +158,4 @@ class GNNTrainer():
         val_acc, test_acc, logits = self._evaluate()
         res = {'val_acc': val_acc, 'test_acc': test_acc}
         print(res)
-        return res
+        return logits, res

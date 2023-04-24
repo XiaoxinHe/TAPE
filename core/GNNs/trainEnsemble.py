@@ -1,7 +1,9 @@
+import pandas as pd
 import argparse
 from core.GNNs.gnn_trainer import GNNTrainer
 from core.GNNs.dgl_gnn_trainer import DGLGNNTrainer
-import pandas as pd
+from core.GNNs.ensemble_trainer import EnsembleTrainer
+
 
 if __name__ == "__main__":
     # ! Load data and train
@@ -19,7 +21,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--input_norm', type=str, default='T')
     parser.add_argument('--runs', type=int, default=4)
-    parser.add_argument('--early_stop', type=int, default=300)
+    parser.add_argument('--early_stop', type=int, default=50)
     parser.add_argument('--use_dgl', action='store_true')
     parser.add_argument('--use_ogb', action='store_true')
     parser.add_argument('--weight_decay', type=float, default=0.00)
@@ -27,15 +29,25 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    all_acc = []
+    ensembler = EnsembleTrainer(args)
+    f1_acc = []
+    f2_acc = []
+    all_acc = {'f1': [], 'f2': [], 'ensemble': []}
+    TRAINER = DGLGNNTrainer if args.use_dgl else GNNTrainer
     for _ in range(args.runs):
-        if args.use_dgl:
-            trainer = DGLGNNTrainer(args)
-        else:
-            trainer = GNNTrainer(args)
-        trainer.train()
-        _, acc = trainer.eval_and_save()
-        all_acc.append(acc)
-    df = pd.DataFrame(all_acc)
+        all_pred = []
+        accs = {}
+        for combine in ['f1', 'f2']:
+            args.combine = combine
+            trainer = TRAINER(args)
+            trainer.train()
+            pred, acc = trainer.eval_and_save()
+            all_acc[combine].append(acc)
+            all_pred.append(pred)
+        pred_ensemble = sum(all_pred)/len(all_pred)
+        all_acc['ensemble'].append(ensembler.eval(pred_ensemble))
 
-    print(f"val acc: {df['val_acc'].mean():.4f} ± {df['val_acc'].std():.4f} test acc: {df['test_acc'].mean():.4f} ± {df['test_acc'].std():.4f}")
+    for k, v in all_acc.items():
+        df = pd.DataFrame(v)
+        print(
+            f"{k} val acc: {df['val_acc'].mean():.4f} ± {df['val_acc'].std():.4f} test acc: {df['test_acc'].mean():.4f} ± {df['test_acc'].std():.4f}")

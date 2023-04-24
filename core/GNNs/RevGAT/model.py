@@ -72,13 +72,18 @@ class GATConv(nn.Module):
         self._allow_zero_in_degree = allow_zero_in_degree
         self._use_symmetric_norm = use_symmetric_norm
         if isinstance(in_feats, tuple):
-            self.fc_src = nn.Linear(self._in_src_feats, out_feats * num_heads, bias=False)
-            self.fc_dst = nn.Linear(self._in_dst_feats, out_feats * num_heads, bias=False)
+            self.fc_src = nn.Linear(
+                self._in_src_feats, out_feats * num_heads, bias=False)
+            self.fc_dst = nn.Linear(
+                self._in_dst_feats, out_feats * num_heads, bias=False)
         else:
-            self.fc = nn.Linear(self._in_src_feats, out_feats * num_heads, bias=False)
-        self.attn_l = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_feats)))
+            self.fc = nn.Linear(self._in_src_feats,
+                                out_feats * num_heads, bias=False)
+        self.attn_l = nn.Parameter(
+            torch.FloatTensor(size=(1, num_heads, out_feats)))
         if use_attn_dst:
-            self.attn_r = nn.Parameter(torch.FloatTensor(size=(1, num_heads, out_feats)))
+            self.attn_r = nn.Parameter(
+                torch.FloatTensor(size=(1, num_heads, out_feats)))
         else:
             self.register_buffer("attn_r", None)
         self.feat_drop = nn.Dropout(feat_drop)
@@ -88,7 +93,8 @@ class GATConv(nn.Module):
         self.edge_drop = edge_drop
         self.leaky_relu = nn.LeakyReLU(negative_slope)
         if residual:
-            self.res_fc = nn.Linear(self._in_dst_feats, num_heads * out_feats, bias=False)
+            self.res_fc = nn.Linear(
+                self._in_dst_feats, num_heads * out_feats, bias=False)
         else:
             self.register_buffer("res_fc", None)
         self.reset_parameters()
@@ -122,12 +128,15 @@ class GATConv(nn.Module):
                 if not hasattr(self, "fc_src"):
                     self.fc_src, self.fc_dst = self.fc, self.fc
                 feat_src, feat_dst = h_src, h_dst
-                feat_src = self.fc_src(h_src).view(-1, self._num_heads, self._out_feats)
-                feat_dst = self.fc_dst(h_dst).view(-1, self._num_heads, self._out_feats)
+                feat_src = self.fc_src(
+                    h_src).view(-1, self._num_heads, self._out_feats)
+                feat_dst = self.fc_dst(
+                    h_dst).view(-1, self._num_heads, self._out_feats)
             else:
                 h_src = self.feat_drop(feat)
                 feat_src = h_src
-                feat_src = self.fc(h_src).view(-1, self._num_heads, self._out_feats)
+                feat_src = self.fc(
+                    h_src).view(-1, self._num_heads, self._out_feats)
                 if graph.is_block:
                     h_dst = h_src[: graph.number_of_dst_nodes()]
                     feat_dst = feat_src[: graph.number_of_dst_nodes()]
@@ -165,11 +174,13 @@ class GATConv(nn.Module):
 
             if self.training and self.edge_drop > 0:
                 if perm is None:
-                    perm = torch.randperm(graph.number_of_edges(), device=e.device)
+                    perm = torch.randperm(
+                        graph.number_of_edges(), device=e.device)
                 bound = int(graph.number_of_edges() * self.edge_drop)
                 eids = perm[bound:]
                 graph.edata["a"] = torch.zeros_like(e)
-                graph.edata["a"][eids] = self.attn_drop(edge_softmax(graph, e[eids], eids=eids))
+                graph.edata["a"][eids] = self.attn_drop(
+                    edge_softmax(graph, e[eids], eids=eids))
             else:
                 graph.edata["a"] = self.attn_drop(edge_softmax(graph, e))
 
@@ -186,7 +197,8 @@ class GATConv(nn.Module):
 
             # residual
             if self.res_fc is not None:
-                resval = self.res_fc(h_dst).view(h_dst.shape[0], -1, self._out_feats)
+                resval = self.res_fc(h_dst).view(
+                    h_dst.shape[0], -1, self._out_feats)
                 rst = rst + resval
 
             # activation
