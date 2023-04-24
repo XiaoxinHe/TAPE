@@ -1,4 +1,5 @@
 import torch
+import os
 import numpy as np
 from core.utils.data.dataset import Dataset
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
@@ -7,6 +8,20 @@ from core.LMs.model import BertClassifier, BertClaInfModel
 from core.LMs.lm_utils import load_data
 from core.LMs.lm_utils import compute_metrics
 from core.utils.function.os_utils import init_path, time_logger
+
+
+def load_gpt_preds(n_classes, top_k):
+    preds = torch.load('pubmed_gpt_labels.pt')
+    scores = torch.zeros(preds.shape[0], n_classes)
+    v = torch.Tensor([1/(j+1) for j in range(top_k)])
+    for i in range(len(preds)):
+        for j in range(top_k):
+            v = preds[i][j]
+            if v >= 0:
+                scores[i][v] = 1/(j+1)
+    scores = scores/scores.sum(-1, keepdim=True)
+
+    return scores
 
 
 class LMTrainer():
@@ -41,6 +56,8 @@ class LMTrainer():
 
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
+
+        # preds = load_gpt_preds(n_classes=self.n_labels, top_k=3)
         dataset = Dataset(X, data.y.tolist())
         self.inf_dataset = dataset
 
@@ -51,6 +68,20 @@ class LMTrainer():
         self.test_dataset = torch.utils.data.Subset(
             dataset, self.data.test_mask.nonzero().squeeze().tolist())
 
+        # Define pretrained tokenizer and model
+        bert_model = AutoModel.from_pretrained(self.model_name)
+        self.model = BertClassifier(bert_model,
+                                    n_labels=self.n_labels,
+                                    feat_shrink=self.feat_shrink)
+
+        # prev_ckpt = f'prt_lm/{self.dataset_name}/{self.model_name}.ckpt'
+        # if self.use_gpt_str and os.path.exists(prev_ckpt):
+        #     print("Initialize using previous ckpt...")
+        #     self.model.load_state_dict(torch.load(prev_ckpt))
+
+        self.model.config.dropout = self.dropout
+        self.model.config.attention_dropout = self.att_dropout
+
     @time_logger
     def train(self):
         # Define training parameters
@@ -58,14 +89,6 @@ class LMTrainer():
         train_steps = self.num_nodes // eq_batch_size + 1
         eval_steps = self.eval_patience // eq_batch_size
         warmup_steps = int(self.warmup_epochs * train_steps)
-
-        # Define pretrained tokenizer and model
-        bert_model = AutoModel.from_pretrained(self.model_name)
-        self.model = BertClassifier(bert_model,
-                                    n_labels=self.n_labels,
-                                    feat_shrink=self.feat_shrink)
-        self.model.config.dropout = self.dropout
-        self.model.config.attention_dropout = self.att_dropout
 
         # Define Trainer
         args = TrainingArguments(
