@@ -1,4 +1,4 @@
-from core.GNNs.gnn_utils import load_data
+from core.GNNs.gnn_utils import load_data, load_gpt_preds
 import torch
 from time import time
 from core.GNNs.GCN.model import GCN
@@ -8,6 +8,11 @@ import numpy as np
 
 
 LOG_FREQ = 10
+
+lm_dim = {
+    'microsoft/deberta-base': 768,
+    'microsoft/deberta-large': 1024,
+}
 
 
 def _process(feature1, feature2, combine):
@@ -36,28 +41,33 @@ class GNNTrainer():
         self.lr = args.lr
         self.combine = args.combine
         self.epochs = args.epochs
-        self.combine = args.combine
 
         # ! Load data
         data = load_data(self.dataset_name)
 
         self.num_nodes = data.x.shape[0]
         self.num_classes = data.y.unique().size(0)
+        use_pred = self.combine == 'f3'
 
         # ! Init gnn feature
         if args.use_ogb:
             print("Loading OGB features...")
             self.features = data.x.to(self.device)
+        elif self.combine == 'f3':
+            print("Loading top-k prediction features...")
+            self.features = load_gpt_preds(
+                self.dataset_name, 5).to(self.device)
+
         else:
             print("Loading pretrained LM features...")
             feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
                                 mode='r',
                                 dtype=np.float16,
-                                shape=(self.num_nodes, 768))
+                                shape=(self.num_nodes, lm_dim[self.lm_model_name]))
             feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
                                  mode='r',
                                  dtype=np.float16,
-                                 shape=(self.num_nodes, 768))
+                                 shape=(self.num_nodes, lm_dim[self.lm_model_name]))
 
             feature = torch.Tensor(np.array(feature))
             feature2 = torch.Tensor(np.array(feature2))
@@ -68,18 +78,20 @@ class GNNTrainer():
         self.data = data.to(self.device)
         # ! Trainer init
         if self.gnn_model_name == "GCN":
-            self.model = GCN(in_channels=self.features.shape[1],
+            self.model = GCN(in_channels=self.hidden_dim*5 if use_pred else self.features.shape[1],
                              hidden_channels=self.hidden_dim,
                              out_channels=self.num_classes,
                              num_layers=self.num_layers,
-                             dropout=self.dropout).to(self.device)
+                             dropout=self.dropout,
+                             use_pred=use_pred).to(self.device)
 
         elif self.gnn_model_name == "SAGE":
-            self.model = SAGE(in_channels=self.features.shape[1],
+            self.model = SAGE(in_channels=self.hidden_dim*5 if use_pred else self.features.shape[1],
                               hidden_channels=self.hidden_dim,
                               out_channels=self.num_classes,
                               num_layers=self.num_layers,
-                              dropout=self.dropout).to(self.device)
+                              dropout=self.dropout,
+                              use_pred=use_pred).to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=0.0)
@@ -112,6 +124,14 @@ class GNNTrainer():
         logits = self._forward(self.features, self.data.edge_index)
         loss = self.loss_func(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
+        # if self.dataset_name == 'ogbn-arxiv':
+        #     src, dst = self.data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
+        # else:
+        #     src, dst = self.data.edge_index
+        # pi = torch.softmax(logits[src], dim=-1)
+        # pj = torch.softmax(logits[dst], dim=-1)
+        # loss_tv = 10*(pi-pj).abs().sum() / (src.shape[0]*self.hidden_dim)
+        # loss += loss_tv
         train_acc = self.evaluator(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss.backward()
@@ -142,7 +162,8 @@ class GNNTrainer():
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
             if epoch % 10 == 0:
-                log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4), 'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
+                log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4),
+                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
                             'ES': es_str, 'GNN_epoch': epoch}
                 print(log_dict)
 

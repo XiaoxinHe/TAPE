@@ -32,12 +32,12 @@ if __name__ == "__main__":
     ensembler = EnsembleTrainer(args)
     f1_acc = []
     f2_acc = []
-    all_acc = {'f1': [], 'f2': [], 'ensemble': []}
+    all_acc = {'f1': [], 'f2': [], 'f3': [], 'ensemble': []}
     TRAINER = DGLGNNTrainer if args.use_dgl else GNNTrainer
     for _ in range(args.runs):
         all_pred = []
         accs = {}
-        for combine in ['f1', 'f2']:
+        for combine in ['f1', 'f2', 'f3']:
             args.combine = combine
             trainer = TRAINER(args)
             trainer.train()

@@ -3,6 +3,26 @@ import numpy as np
 import dgl
 import torch
 from torch.utils.data import Dataset as TorchDataset
+import csv
+
+
+def load_gpt_preds(dataset, topk):
+    def _load():
+        loaded_list = []
+        with open(f'gpt_preds/{dataset}.csv', 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                inner_list = []
+                for value in row:
+                    inner_list.append(int(value))
+                loaded_list.append(inner_list)
+        return loaded_list
+
+    preds = _load()
+    pl = torch.zeros(len(preds), topk, dtype=torch.long)
+    for i, pred in enumerate(preds):
+        pl[i][:len(pred)] = torch.tensor(pred, dtype=torch.long)+1
+    return pl
 
 
 class CustomDGLDataset(TorchDataset):

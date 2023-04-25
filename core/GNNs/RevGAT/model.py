@@ -282,7 +282,8 @@ class RevGAT(nn.Module):
             edge_drop=0.0,
             use_attn_dst=True,
             use_symmetric_norm=False,
-            group=2, input_norm=True
+            group=2, input_norm=True,
+            use_pred=False,
     ):
         super().__init__()
         self.in_feats = in_feats
@@ -291,7 +292,10 @@ class RevGAT(nn.Module):
         self.n_layers = n_layers
         self.num_heads = n_heads
         self.group = group
+        self.use_pred = use_pred
 
+        if self.use_pred:
+            self.encoder = torch.nn.Embedding(n_classes+1, n_hidden)
         self.convs = nn.ModuleList()
         self.norm = nn.BatchNorm1d(n_heads * n_hidden)
         if input_norm:
@@ -352,6 +356,9 @@ class RevGAT(nn.Module):
 
     def forward(self, graph, feat, output_hidden_layer=None):
         h = feat
+        if self.use_pred:
+            h = self.encoder(h)
+            h = torch.flatten(h, start_dim=1)
         if hasattr(self, 'input_norm'):
             h = self.input_norm(h)
             # h2 = self.input_norm(h2)

@@ -1,4 +1,4 @@
-from core.GNNs.gnn_utils import load_data
+from core.GNNs.gnn_utils import load_data, load_gpt_preds
 import torch
 from time import time
 from core.GNNs.RevGAT.model import RevGAT
@@ -7,6 +7,11 @@ import numpy as np
 
 
 LOG_FREQ = 10
+
+lm_dim = {
+    'microsoft/deberta-base': 768,
+    'microsoft/deberta-large': 1024,
+}
 
 
 def _process(feature1, feature2, combine):
@@ -61,35 +66,36 @@ class DGLGNNTrainer():
         if args.use_ogb:
             print("Loading OGB features...")
             self.features = data.ndata['feat'].to(self.device)
+        elif self.combine == 'f3':
+            print("Loading top-k prediction features...")
+            self.features = load_gpt_preds(
+                self.dataset_name, 5).to(self.device)
         else:
             print("Loading pretrained LM features...")
             LM_emb_path = f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb"
             LM_emb_path2 = f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb"
-            feature = torch.from_numpy(np.array(np.memmap(
-                LM_emb_path, mode='r', dtype=np.float16, shape=(self.num_nodes, 768)))).to(torch.float32)
-            feature2 = torch.from_numpy(np.array(np.memmap(
-                LM_emb_path2, mode='r', dtype=np.float16, shape=(self.num_nodes, 768)))).to(torch.float32)
+            feature = torch.from_numpy(np.array(
+                np.memmap(LM_emb_path, mode='r',
+                          dtype=np.float16,
+                          shape=(self.num_nodes, lm_dim[self.lm_model_name])))
+            ).to(torch.float32)
+            feature2 = torch.from_numpy(np.array(
+                np.memmap(
+                    LM_emb_path2, mode='r',
+                    dtype=np.float16,
+                    shape=(self.num_nodes, lm_dim[self.lm_model_name])))
+            ).to(torch.float32)
 
-            # feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
-            #                     mode='r',
-            #                     dtype=np.float16,
-            #                     shape=(self.num_nodes, 768))
-            # feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
-            #                      mode='r',
-            #                      dtype=np.float16,
-            #                      shape=(self.num_nodes, 768))
-
-            # feature = torch.Tensor(np.array(feature))
-            # feature2 = torch.Tensor(np.array(feature2))
             self.features = _process(
                 feature, feature2, self.combine).to(self.device)
 
-        # self.preds = torch.load('gpt_labels.pt').to(self.device)
+            # self.preds = torch.load('gpt_labels.pt').to(self.device)
 
         self.data = data.to(self.device)
         # ! Trainer init
+        use_pred = self.combine == 'f3'
         if self.gnn_model_name == "RevGAT":
-            self.model = RevGAT(in_feats=self.features.shape[1],
+            self.model = RevGAT(in_feats=self.hidden_dim*5 if use_pred else self.features.shape[1],
                                 n_classes=self.num_classes,
                                 n_hidden=self.hidden_dim,
                                 n_layers=self.num_layers,
@@ -102,7 +108,8 @@ class DGLGNNTrainer():
                                 use_attn_dst=not self.no_attn_dst,
                                 use_symmetric_norm=self.use_norm,
                                 group=self.group,
-                                input_norm=self.input_norm == 'T'
+                                input_norm=self.input_norm == 'T',
+                                use_pred=use_pred
                                 ).to(self.device)
 
         self.optimizer = torch.optim.RMSprop(
