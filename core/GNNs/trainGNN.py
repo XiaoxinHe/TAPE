@@ -19,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--input_norm', type=str, default='T')
     parser.add_argument('--runs', type=int, default=4)
+    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--early_stop', type=int, default=50)
     parser.add_argument('--use_dgl', action='store_true')
     parser.add_argument('--use_ogb', action='store_true')

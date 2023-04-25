@@ -41,6 +41,7 @@ class GNNTrainer():
         self.lr = args.lr
         self.combine = args.combine
         self.epochs = args.epochs
+        self.seed = args.seed
 
         # ! Load data
         data = load_data(self.dataset_name)
@@ -48,28 +49,34 @@ class GNNTrainer():
         self.num_nodes = data.x.shape[0]
         self.num_classes = data.y.unique().size(0)
         use_pred = self.combine == 'f3'
-        topk = 3
+
         # ! Init gnn feature
+        topk = 3 if self.dataset_name == 'pubmed' else 5
         if args.use_ogb:
             print("Loading OGB features...")
             self.features = data.x.to(self.device)
         elif self.combine == 'f3':
             print("Loading top-k prediction features...")
-            self.features = load_gpt_preds(self.dataset_name, topk).to(self.device)
-
+            self.features = load_gpt_preds(
+                self.dataset_name, topk).to(self.device)
         else:
             print("Loading pretrained LM features...")
-            feature = np.memmap(f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb",
-                                mode='r',
-                                dtype=np.float16,
-                                shape=(self.num_nodes, lm_dim[self.lm_model_name]))
-            feature2 = np.memmap(f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb",
-                                 mode='r',
-                                 dtype=np.float16,
-                                 shape=(self.num_nodes, lm_dim[self.lm_model_name]))
+            LM_emb_path = f"prt_lm/{self.dataset_name}-seed{self.seed}/{self.lm_model_name}.emb"
+            LM_emb_path2 = f"prt_lm/{self.dataset_name}2-seed{self.seed}/{self.lm_model_name}.emb"
+            print(f"LM_emb_path: {LM_emb_path}")
+            print(f"LM_emb_path2: {LM_emb_path2}")
+            feature = torch.from_numpy(np.array(
+                np.memmap(LM_emb_path, mode='r',
+                          dtype=np.float16,
+                          shape=(self.num_nodes, lm_dim[self.lm_model_name])))
+            ).to(torch.float32)
+            feature2 = torch.from_numpy(np.array(
+                np.memmap(
+                    LM_emb_path2, mode='r',
+                    dtype=np.float16,
+                    shape=(self.num_nodes, lm_dim[self.lm_model_name])))
+            ).to(torch.float32)
 
-            feature = torch.Tensor(np.array(feature))
-            feature2 = torch.Tensor(np.array(feature2))
             self.features = _process(
                 feature, feature2, self.combine).to(self.device)
 

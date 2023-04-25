@@ -49,6 +49,7 @@ class DGLGNNTrainer():
         self.use_norm = False
         self.group = 2
         self.input_norm = 'T'
+        self.seed = args.seed
 
         # ! Load data
         dataset = load_data(self.dataset_name, use_dgl=True)
@@ -73,8 +74,10 @@ class DGLGNNTrainer():
                 self.dataset_name, topk).to(self.device)
         else:
             print("Loading pretrained LM features...")
-            LM_emb_path = f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb"
-            LM_emb_path2 = f"prt_lm/{self.dataset_name}2/{self.lm_model_name}.emb"
+            LM_emb_path = f"prt_lm/{self.dataset_name}-seed{self.seed}/{self.lm_model_name}.emb"
+            LM_emb_path2 = f"prt_lm/{self.dataset_name}2-seed{self.seed}/{self.lm_model_name}.emb"
+            print(f"LM_emb_path: {LM_emb_path}")
+            print(f"LM_emb_path2: {LM_emb_path2}")
             feature = torch.from_numpy(np.array(
                 np.memmap(LM_emb_path, mode='r',
                           dtype=np.float16,
@@ -89,8 +92,6 @@ class DGLGNNTrainer():
 
             self.features = _process(
                 feature, feature2, self.combine).to(self.device)
-
-            # self.preds = torch.load('gpt_labels.pt').to(self.device)
 
         self.data = data.to(self.device)
         # ! Trainer init
