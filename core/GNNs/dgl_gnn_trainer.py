@@ -63,13 +63,14 @@ class DGLGNNTrainer():
         self.num_classes = self.y.unique().size(0)
 
         # ! Init gnn feature
+        topk = 3 if self.dataset_name == 'pubmed' else 5
         if args.use_ogb:
             print("Loading OGB features...")
             self.features = data.ndata['feat'].to(self.device)
         elif self.combine == 'f3':
             print("Loading top-k prediction features...")
             self.features = load_gpt_preds(
-                self.dataset_name, 5).to(self.device)
+                self.dataset_name, topk).to(self.device)
         else:
             print("Loading pretrained LM features...")
             LM_emb_path = f"prt_lm/{self.dataset_name}/{self.lm_model_name}.emb"
@@ -95,7 +96,7 @@ class DGLGNNTrainer():
         # ! Trainer init
         use_pred = self.combine == 'f3'
         if self.gnn_model_name == "RevGAT":
-            self.model = RevGAT(in_feats=self.hidden_dim*5 if use_pred else self.features.shape[1],
+            self.model = RevGAT(in_feats=self.hidden_dim*topk if use_pred else self.features.shape[1],
                                 n_classes=self.num_classes,
                                 n_hidden=self.hidden_dim,
                                 n_layers=self.num_layers,

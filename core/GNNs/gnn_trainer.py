@@ -48,15 +48,14 @@ class GNNTrainer():
         self.num_nodes = data.x.shape[0]
         self.num_classes = data.y.unique().size(0)
         use_pred = self.combine == 'f3'
-
+        topk = 3
         # ! Init gnn feature
         if args.use_ogb:
             print("Loading OGB features...")
             self.features = data.x.to(self.device)
         elif self.combine == 'f3':
             print("Loading top-k prediction features...")
-            self.features = load_gpt_preds(
-                self.dataset_name, 5).to(self.device)
+            self.features = load_gpt_preds(self.dataset_name, topk).to(self.device)
 
         else:
             print("Loading pretrained LM features...")
@@ -78,7 +77,7 @@ class GNNTrainer():
         self.data = data.to(self.device)
         # ! Trainer init
         if self.gnn_model_name == "GCN":
-            self.model = GCN(in_channels=self.hidden_dim*5 if use_pred else self.features.shape[1],
+            self.model = GCN(in_channels=self.hidden_dim*topk if use_pred else self.features.shape[1],
                              hidden_channels=self.hidden_dim,
                              out_channels=self.num_classes,
                              num_layers=self.num_layers,
@@ -86,7 +85,7 @@ class GNNTrainer():
                              use_pred=use_pred).to(self.device)
 
         elif self.gnn_model_name == "SAGE":
-            self.model = SAGE(in_channels=self.hidden_dim*5 if use_pred else self.features.shape[1],
+            self.model = SAGE(in_channels=self.hidden_dim*topk if use_pred else self.features.shape[1],
                               hidden_channels=self.hidden_dim,
                               out_channels=self.num_classes,
                               num_layers=self.num_layers,

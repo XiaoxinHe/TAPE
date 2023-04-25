@@ -6,22 +6,44 @@ from torch.utils.data import Dataset as TorchDataset
 import csv
 
 
-def load_gpt_preds(dataset, topk):
-    def _load():
-        loaded_list = []
-        with open(f'gpt_preds/{dataset}.csv', 'r') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                inner_list = []
-                for value in row:
-                    inner_list.append(int(value))
-                loaded_list.append(inner_list)
-        return loaded_list
+def to_unique_list(my_list):
+    unique_list = []
+    seen = set()
+    for item in my_list:
+        if item not in seen:
+            unique_list.append(item)
+            seen.add(item)
+    return unique_list
 
-    preds = _load()
+
+# def _modify(my_list, train_mask, label):
+#     label = label.squeeze().tolist()
+#     for i, row in enumerate(my_list):
+#         if train_mask[i]:
+#             my_list[i].insert(0, label[i])
+#     return my_list
+
+
+def _load(dataset):
+    loaded_list = []
+    with open(f'gpt_preds/{dataset}.csv', 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            inner_list = []
+            for value in row:
+                inner_list.append(int(value))
+            loaded_list.append(inner_list)
+    return loaded_list
+
+
+def load_gpt_preds(dataset, topk):
+    preds = _load(dataset)
+    # preds = _modify(preds, train_mask, label)
+    # preds = [to_unique_list(i) for i in preds]
+
     pl = torch.zeros(len(preds), topk, dtype=torch.long)
     for i, pred in enumerate(preds):
-        pl[i][:len(pred)] = torch.tensor(pred, dtype=torch.long)+1
+        pl[i][:len(pred)] = torch.tensor(pred[:topk], dtype=torch.long)+1
     return pl
 
 
