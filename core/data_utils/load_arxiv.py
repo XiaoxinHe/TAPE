@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 
 
-def get_raw_text_arxiv(use_text=False):
+def get_raw_text_arxiv(use_text=False, seed=0):
 
     dataset = PygNodePropPredDataset(
         name='ogbn-arxiv', transform=T.ToSparseTensor())

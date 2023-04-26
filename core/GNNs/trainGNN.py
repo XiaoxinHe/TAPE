@@ -29,12 +29,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
+    TRAINER = DGLGNNTrainer if args.use_dgl else GNNTrainer
     all_acc = []
-    for _ in range(args.runs):
-        if args.use_dgl:
-            trainer = DGLGNNTrainer(args)
-        else:
-            trainer = GNNTrainer(args)
+    for seed in range(args.runs):
+        args.seed = seed
+        trainer = TRAINER(args)
         trainer.train()
         _, acc = trainer.eval_and_save()
         all_acc.append(acc)

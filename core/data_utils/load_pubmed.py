@@ -11,11 +11,10 @@ import pandas as pd
 # return pubmed dataset as pytorch geometric Data object together with 60/20/20 split, and list of pubmed IDs
 
 
-def get_pubmed_casestudy(corrected=False):
+def get_pubmed_casestudy(corrected=False, SEED=0):
     _, data_X, data_Y, data_pubid, data_edges = parse_pubmed()
     data_X = normalize(data_X, norm="l1")
 
-    SEED = 0
     torch.manual_seed(SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(SEED)
@@ -136,8 +135,8 @@ def parse_pubmed():
     return data_A, data_X, data_Y, data_pubid, np.unique(data_edges, axis=0).transpose()
 
 
-def get_raw_text_pubmed(use_text=False):
-    data, data_pubid = get_pubmed_casestudy()
+def get_raw_text_pubmed(use_text=False, seed=0):
+    data, data_pubid = get_pubmed_casestudy(SEED=seed)
     if not use_text:
         return data, None
 

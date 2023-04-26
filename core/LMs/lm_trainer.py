@@ -44,12 +44,12 @@ class LMTrainer():
         self.lr = args.lr
 
         self.use_gpt_str = "2" if args.use_gpt else ""
-        self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
-        self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}'
+        self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}-seed{self.seed}/{self.model_name}'
+        self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}-seed{self.seed}/{self.model_name}'
 
         # Preprocess data
-        data, text = load_data(dataset=self.dataset_name,
-                               use_text=True, use_gpt=args.use_gpt)
+        data, text = load_data(
+            dataset=self.dataset_name, use_text=True, use_gpt=args.use_gpt, seed=self.seed)
         self.data = data
         self.num_nodes = data.x.size(0)
         self.n_labels = data.y.unique().size(0)
