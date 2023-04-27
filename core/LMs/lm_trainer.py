@@ -10,6 +10,11 @@ from core.LMs.lm_utils import compute_metrics
 from core.utils.function.os_utils import init_path, time_logger
 
 
+lm_dim = {
+    'microsoft/deberta-base': 768,
+    'microsoft/deberta-large': 1024,
+}
+
 def load_gpt_preds(n_classes, top_k):
     preds = torch.load('pubmed_gpt_labels.pt')
     scores = torch.zeros(preds.shape[0], n_classes)
@@ -44,8 +49,8 @@ class LMTrainer():
         self.lr = args.lr
 
         self.use_gpt_str = "2" if args.use_gpt else ""
-        self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}-seed{self.seed}/{self.model_name}'
-        self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}-seed{self.seed}/{self.model_name}'
+        self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
+        self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
 
         # Preprocess data
         data, text = load_data(
@@ -131,7 +136,7 @@ class LMTrainer():
         emb = np.memmap(init_path(f"{self.ckpt_dir}.emb"),
                         dtype=np.float16,
                         mode='w+',
-                        shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else 768))
+                        shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else lm_dim[self.model_name]))
         pred = np.memmap(init_path(f"{self.ckpt_dir}.pred"),
                          dtype=np.float16,
                          mode='w+',
