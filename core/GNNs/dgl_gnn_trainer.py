@@ -75,7 +75,7 @@ class DGLGNNTrainer():
         else:
             print("Loading pretrained LM features...")
             LM_emb_path = f"prt_lm/{self.dataset_name}/{self.lm_model_name}-seed{self.seed}.emb"
-            LM_emb_path2 = f"prt_lm/{self.dataset_name}/{self.lm_model_name}-seed{self.seed}.emb"
+            LM_emb_path2 = f"prt_lm/{self.dataset_name}2/{self.lm_model_name}-seed{self.seed}.emb"
             print(f"LM_emb_path: {LM_emb_path}")
             print(f"LM_emb_path2: {LM_emb_path2}")
             feature = torch.from_numpy(np.array(
