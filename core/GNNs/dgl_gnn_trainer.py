@@ -4,7 +4,7 @@ from time import time
 from core.GNNs.RevGAT.model import RevGAT
 from core.utils.modules.early_stopper import EarlyStopping
 import numpy as np
-
+from core.utils.function.os_utils import time_logger
 
 LOG_FREQ = 10
 
@@ -162,6 +162,7 @@ class DGLGNNTrainer():
             logits[self.test_mask], self.y[self.test_mask])
         return val_acc, test_acc, logits
 
+    @time_logger
     def train(self):
         # ! Training
         for epoch in range(self.epochs):
@@ -188,6 +189,7 @@ class DGLGNNTrainer():
 
         return self.model
 
+    @time_logger
     @ torch.no_grad()
     def eval_and_save(self):
         torch.save(self.model.state_dict(), self.ckpt)

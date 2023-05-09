@@ -3,7 +3,7 @@ import argparse
 from core.GNNs.gnn_trainer import GNNTrainer
 from core.GNNs.dgl_gnn_trainer import DGLGNNTrainer
 from core.GNNs.ensemble_trainer import EnsembleTrainer
-
+import time
 
 if __name__ == "__main__":
     # ! Load data and train
@@ -29,6 +29,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
+    t0 = time.time()
     ensembler = EnsembleTrainer(args)
     f1_acc = []
     f2_acc = []
@@ -39,7 +40,7 @@ if __name__ == "__main__":
         all_pred = []
         accs = {}
         for combine in ['f1', 'f2', 'f3']:
-        # for combine in ['f1', 'f2']:
+            # for combine in ['f1', 'f2']:
             args.combine = combine
             args.seed = seed
             trainer = TRAINER(args)
@@ -54,3 +55,5 @@ if __name__ == "__main__":
         df = pd.DataFrame(v)
         print(
             f"{k} val acc: {df['val_acc'].mean():.4f} ± {df['val_acc'].std():.4f} test acc: {df['test_acc'].mean():.4f} ± {df['test_acc'].std():.4f}")
+
+    print(f"Total training time: {time.time()-t0:.2f}s")

@@ -14,7 +14,9 @@ class BertClassifier(PreTrainedModel):
         self.dropout = nn.Dropout(dropout)
         self.feat_shrink = feat_shrink
         hidden_dim = model.config.hidden_size
-        self.loss_func = nn.CrossEntropyLoss(label_smoothing=0.3, reduction='mean')
+        self.loss_func = nn.CrossEntropyLoss(
+            label_smoothing=0.3, reduction='mean')
+        # self.loss_func = nn.KLDivLoss()
 
         if feat_shrink:
             self.feat_shrink_layer = nn.Linear(
@@ -27,7 +29,8 @@ class BertClassifier(PreTrainedModel):
                 input_ids=None,
                 attention_mask=None,
                 labels=None,
-                return_dict=None):
+                return_dict=None,
+                preds=None):
 
         outputs = self.bert_encoder(input_ids=input_ids,
                                     attention_mask=attention_mask,
@@ -44,6 +47,8 @@ class BertClassifier(PreTrainedModel):
         if labels.shape[-1] == 1:
             labels = labels.squeeze()
         loss = self.loss_func(logits, labels)
+        # target = torch.log_softmax(logits, dim=-1)
+        # loss = self.loss_func(target, preds)
 
         return TokenClassifierOutput(loss=loss, logits=logits)
 
@@ -54,7 +59,8 @@ class BertClaInfModel(PreTrainedModel):
         self.bert_classifier = model
         self.emb, self.pred = emb, pred
         self.feat_shrink = feat_shrink
-        self.loss_func = nn.CrossEntropyLoss(label_smoothing=0.3, reduction='mean')
+        self.loss_func = nn.CrossEntropyLoss(
+            label_smoothing=0.3, reduction='mean')
 
     @torch.no_grad()
     def forward(self,

@@ -5,7 +5,7 @@ from core.utils.data.dataset import Dataset
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
 from core.LMs.model import BertClassifier, BertClaInfModel
 
-from core.LMs.lm_utils import load_data
+from core.LMs.lm_utils import load_data, load_gpt_preds
 from core.LMs.lm_utils import compute_metrics
 from core.utils.function.os_utils import init_path, time_logger
 
@@ -14,19 +14,6 @@ lm_dim = {
     'microsoft/deberta-base': 768,
     'microsoft/deberta-large': 1024,
 }
-
-def load_gpt_preds(n_classes, top_k):
-    preds = torch.load('pubmed_gpt_labels.pt')
-    scores = torch.zeros(preds.shape[0], n_classes)
-    v = torch.Tensor([1/(j+1) for j in range(top_k)])
-    for i in range(len(preds)):
-        for j in range(top_k):
-            v = preds[i][j]
-            if v >= 0:
-                scores[i][v] = 1/(j+1)
-    scores = scores/scores.sum(-1, keepdim=True)
-
-    return scores
 
 
 class LMTrainer():
@@ -62,7 +49,7 @@ class LMTrainer():
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
 
-        # preds = load_gpt_preds(n_classes=self.n_labels, top_k=3)
+        # preds = load_gpt_preds(dataset=self.dataset_name, num_classes=self.n_labels, labels=data.y.squeeze())
         dataset = Dataset(X, data.y.tolist())
         self.inf_dataset = dataset
 

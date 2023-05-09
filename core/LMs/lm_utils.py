@@ -111,8 +111,50 @@ def load_data(dataset, use_text=False, use_gpt=False, seed=0):
             file_path = os.path.join(folder_path, filename)
             with open(file_path, 'r') as file:
                 json_data = json.load(file)
-                text.append(json_data['choices'][0]['message']['content'])
+                content = json_data['choices'][0]['message']['content']
+                # content = ('\n\n').join(content.split('\n\n')[1:])
+                content = content.split('\n\n')[0]
+                text.append(content)
     else:
         data, text = get_raw_text(use_text, seed)
 
     return data, text
+
+
+def load_gpt_preds(dataset, num_classes, labels):
+    import csv
+
+    def _load(dataset):
+        loaded_list = []
+        with open(f'gpt_preds/{dataset}.csv', 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                inner_list = []
+                for value in row:
+                    inner_list.append(int(value))
+                loaded_list.append(inner_list)
+        return loaded_list
+
+    def to_unique_list(my_list):
+        unique_list = []
+        seen = set()
+        for item in my_list:
+            if item not in seen:
+                unique_list.append(item)
+                seen.add(item)
+        return unique_list
+
+    def _adjust(preds, labels):
+        for i, l in enumerate(labels):
+            preds[i].insert((0), l)
+        return preds
+
+    preds = _load(dataset)
+    preds = _adjust(preds, labels)
+    preds = [to_unique_list(p) for p in preds]
+    pl = torch.zeros(len(preds), num_classes)
+    for i, pred in enumerate(preds):
+        for j, p in enumerate(pred):
+            pl[i][p] = 1/(j+1)
+    pl = pl/pl.sum(dim=-1, keepdim=True)
+    return pl
