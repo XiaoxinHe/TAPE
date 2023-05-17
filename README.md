@@ -1,4 +1,4 @@
-# TAG
+# Explanations as Features: LLM-Based Features for Text-Attributed Graphs
 
 # Python environment setup with Conda
 ```
