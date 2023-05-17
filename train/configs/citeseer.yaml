@@ -1,3 +1,0 @@
-dataset: citeseer
-train:
-  lr_gnn: 0.001

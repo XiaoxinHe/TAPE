@@ -1,6 +1,0 @@
-dataset: cora
-train:
-  lr_gnn: 1e-2
-  lr_lm: 1e-5
-  lr_z: 1e-2
-  stages: 5

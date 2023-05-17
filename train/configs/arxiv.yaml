@@ -1,4 +1,0 @@
-dataset: ogbn-arxiv
-train:
-  lr_gnn: 0.01
-  epochs: 500

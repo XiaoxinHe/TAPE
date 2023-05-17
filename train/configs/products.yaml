@@ -1,4 +1,0 @@
-dataset: ogbn-products
-train:
-  lr_gnn: 0.01
-  epochs: 10
