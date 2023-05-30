@@ -1,47 +1,47 @@
 import torch
-import os
 import numpy as np
-from core.utils.data.dataset import Dataset
+
 from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer, IntervalStrategy
 from core.LMs.model import BertClassifier, BertClaInfModel
+from core.data_utils.dataset import Dataset
+from core.data_utils.load import load_data
+from core.utils import init_path, time_logger
 
-from core.LMs.lm_utils import load_data, load_gpt_preds
-from core.LMs.lm_utils import compute_metrics
-from core.utils.function.os_utils import init_path, time_logger
 
-
-lm_dim = {
-    'microsoft/deberta-base': 768,
-    'microsoft/deberta-large': 1024,
-}
+def compute_metrics(p):
+    from sklearn.metrics import accuracy_score
+    pred, labels = p
+    pred = np.argmax(pred, axis=1)
+    accuracy = accuracy_score(y_true=labels, y_pred=pred)
+    return {"accuracy": accuracy}
 
 
 class LMTrainer():
-    def __init__(self, args):
-        self.model_name = args.model
-        self.dataset_name = args.dataset
-        self.seed = args.seed
+    def __init__(self, cfg):
+        self.dataset_name = cfg.dataset
+        self.seed = cfg.seed
 
-        self.feat_shrink = args.feat_shrink
-        self.weight_decay = args.weight_decay
-        self.dropout = args.dropout
-        self.att_dropout = args.att_dropout
-        self.cla_dropout = args.cla_dropout
+        self.model_name = cfg.lm.model.name
+        self.feat_shrink = cfg.lm.model.feat_shrink
 
-        self.batch_size = args.batch_size
-        self.epochs = args.epochs
-        self.warmup_epochs = args.warmup_epochs
-        self.eval_patience = args.eval_patience
-        self.grad_acc_steps = args.grad_acc_steps
-        self.lr = args.lr
+        self.weight_decay = cfg.lm.train.weight_decay
+        self.dropout = cfg.lm.train.dropout
+        self.att_dropout = cfg.lm.train.att_dropout
+        self.cla_dropout = cfg.lm.train.cla_dropout
+        self.batch_size = cfg.lm.train.batch_size
+        self.epochs = cfg.lm.train.epochs
+        self.warmup_epochs = cfg.lm.train.warmup_epochs
+        self.eval_patience = cfg.lm.train.eval_patience
+        self.grad_acc_steps = cfg.lm.train.grad_acc_steps
+        self.lr = cfg.lm.train.lr
 
-        self.use_gpt_str = "2" if args.use_gpt else ""
+        self.use_gpt_str = "2" if cfg.lm.train.use_gpt else ""
         self.output_dir = f'output/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
         self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
 
         # Preprocess data
         data, text = load_data(
-            dataset=self.dataset_name, use_text=True, use_gpt=args.use_gpt, seed=self.seed)
+            dataset=self.dataset_name, use_text=True, use_gpt=cfg.lm.train.use_gpt, seed=self.seed)
         self.data = data
         self.num_nodes = data.x.size(0)
         self.n_labels = data.y.unique().size(0)
@@ -49,7 +49,6 @@ class LMTrainer():
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
 
-        # preds = load_gpt_preds(dataset=self.dataset_name, num_classes=self.n_labels, labels=data.y.squeeze())
         dataset = Dataset(X, data.y.tolist())
         self.inf_dataset = dataset
 
@@ -123,7 +122,7 @@ class LMTrainer():
         emb = np.memmap(init_path(f"{self.ckpt_dir}.emb"),
                         dtype=np.float16,
                         mode='w+',
-                        shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else lm_dim[self.model_name]))
+                        shape=(self.num_nodes, self.feat_shrink if self.feat_shrink else 768))
         pred = np.memmap(init_path(f"{self.ckpt_dir}.pred"),
                          dtype=np.float16,
                          mode='w+',

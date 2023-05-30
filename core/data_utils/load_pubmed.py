@@ -59,11 +59,10 @@ def get_pubmed_casestudy(corrected=False, SEED=0):
 
 
 def parse_pubmed():
-    path = 'dataset/Pubmed-Diabetes/data/'
+    path = 'dataset/PubMed_orig/data/'
 
     n_nodes = 19717
     n_features = 500
-    n_classes = 3
 
     data_X = np.zeros((n_nodes, n_features), dtype='float32')
     data_Y = [None] * n_nodes
@@ -140,7 +139,7 @@ def get_raw_text_pubmed(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    f = open('dataset/Pubmed-Diabetes/pubmed.json')
+    f = open('dataset/PubMed_orig/pubmed.json')
     pubmed = json.load(f)
     df_pubmed = pd.DataFrame.from_dict(pubmed)
 

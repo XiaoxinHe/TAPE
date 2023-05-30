@@ -6,6 +6,7 @@ try:
 except:
     from gcn_revop import InvertibleModuleWrapper
 
+
 class GroupAdditiveCoupling(torch.nn.Module):
     def __init__(self, Fms, split_dim=-1, group=2):
         super(GroupAdditiveCoupling, self).__init__()
@@ -16,7 +17,8 @@ class GroupAdditiveCoupling(torch.nn.Module):
 
     def forward(self, x, edge_index, *args):
         xs = torch.chunk(x, self.group, dim=self.split_dim)
-        chunked_args = list(map(lambda arg: torch.chunk(arg, self.group, dim=self.split_dim), args))
+        chunked_args = list(map(lambda arg: torch.chunk(
+            arg, self.group, dim=self.split_dim), args))
         args_chunks = list(zip(*chunked_args))
         y_in = sum(xs[1:])
 
@@ -33,7 +35,8 @@ class GroupAdditiveCoupling(torch.nn.Module):
 
     def inverse(self, y, edge_index, *args):
         ys = torch.chunk(y, self.group, dim=self.split_dim)
-        chunked_args = list(map(lambda arg: torch.chunk(arg, self.group, dim=self.split_dim), args))
+        chunked_args = list(map(lambda arg: torch.chunk(
+            arg, self.group, dim=self.split_dim), args))
         args_chunks = list(zip(*chunked_args))
 
         xs = []

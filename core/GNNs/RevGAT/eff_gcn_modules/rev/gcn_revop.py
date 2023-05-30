@@ -34,7 +34,8 @@ class InvertibleCheckpointFunction(torch.autograd.Function):
             ctx.had_cuda_in_fwd = False
             if torch.cuda._initialized:
                 ctx.had_cuda_in_fwd = True
-                ctx.fwd_gpu_devices, ctx.fwd_gpu_states = get_device_states(*inputs)
+                ctx.fwd_gpu_devices, ctx.fwd_gpu_states = get_device_states(
+                    *inputs)
 
         ctx.input_requires_grad = [element.requires_grad for element in inputs]
 
@@ -73,7 +74,8 @@ class InvertibleCheckpointFunction(torch.autograd.Function):
     @staticmethod
     def backward(ctx, *grad_outputs):  # pragma: no cover
         if not torch.autograd._is_checkpoint_valid():
-            raise RuntimeError("InvertibleCheckpointFunction is not compatible with .grad(), please use .backward() if possible")
+            raise RuntimeError(
+                "InvertibleCheckpointFunction is not compatible with .grad(), please use .backward() if possible")
         # retrieve input and output tensor nodes
         if len(ctx.outputs) == 0:
             raise RuntimeError("Trying to perform backward on the InvertibleCheckpointFunction for more than "
@@ -93,7 +95,8 @@ class InvertibleCheckpointFunction(torch.autograd.Function):
                 if ctx.preserve_rng_state:
                     torch.set_rng_state(ctx.fwd_cpu_state)
                     if ctx.had_cuda_in_fwd:
-                        set_device_states(ctx.fwd_gpu_devices, ctx.fwd_gpu_states)
+                        set_device_states(ctx.fwd_gpu_devices,
+                                          ctx.fwd_gpu_states)
                 # recompute input
                 with torch.no_grad():
                     # edge_index and edge_emb
@@ -134,7 +137,7 @@ class InvertibleCheckpointFunction(torch.autograd.Function):
             temp_output = (temp_output,)
 
         filtered_detached_inputs = tuple(filter(lambda x: x.requires_grad,
-                                               detached_inputs))
+                                                detached_inputs))
         gradients = torch.autograd.grad(outputs=temp_output,
                                         inputs=filtered_detached_inputs + ctx.weights,
                                         grad_outputs=grad_outputs)
@@ -283,22 +286,24 @@ class InvertibleModuleWrapper(nn.Module):
 # get_device_states and set_device_states cannot be imported from
 # torch.utils.checkpoint, since it was not
 # present in older versions, so we include a copy here.
+
+
 def get_device_states(*args):
-      # This will not error out if "arg" is a CPU tensor or a non-tensor type
-      # because
-      # the conditionals short-circuit.
-      fwd_gpu_devices = list(set(arg.get_device() for arg in args
-                            if isinstance(arg, torch.Tensor) and arg.is_cuda))
+    # This will not error out if "arg" is a CPU tensor or a non-tensor type
+    # because
+    # the conditionals short-circuit.
+    fwd_gpu_devices = list(set(arg.get_device() for arg in args
+                               if isinstance(arg, torch.Tensor) and arg.is_cuda))
 
-      fwd_gpu_states = []
-      for device in fwd_gpu_devices:
-          with torch.cuda.device(device):
-              fwd_gpu_states.append(torch.cuda.get_rng_state())
+    fwd_gpu_states = []
+    for device in fwd_gpu_devices:
+        with torch.cuda.device(device):
+            fwd_gpu_states.append(torch.cuda.get_rng_state())
 
-      return fwd_gpu_devices, fwd_gpu_states
+    return fwd_gpu_devices, fwd_gpu_states
 
 
 def set_device_states(devices, states):
-      for device, state in zip(devices, states):
-          with torch.cuda.device(device):
-              torch.cuda.set_rng_state(state)
+    for device, state in zip(devices, states):
+        with torch.cuda.device(device):
+            torch.cuda.set_rng_state(state)

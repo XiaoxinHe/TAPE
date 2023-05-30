@@ -53,15 +53,15 @@ class BasicBlock(nn.Module):
 
 class GENBlock(BasicBlock):
     def __init__(self, in_channels, out_channels,
-                        aggr='max',
-                        t=1.0, learn_t=False,
-                        p=1.0, learn_p=False,
-                        y=0.0, learn_y=False,
-                        msg_norm=False,
-                        learn_msg_scale=False,
-                        encode_edge=False,
-                        edge_feat_dim=0,
-                        norm='layer', mlp_layers=1):
+                 aggr='max',
+                 t=1.0, learn_t=False,
+                 p=1.0, learn_p=False,
+                 y=0.0, learn_y=False,
+                 msg_norm=False,
+                 learn_msg_scale=False,
+                 encode_edge=False,
+                 edge_feat_dim=0,
+                 norm='layer', mlp_layers=1):
         super(GENBlock, self).__init__(norm, in_channels)
 
         self.gcn = GENConv(in_channels, out_channels,
@@ -79,7 +79,7 @@ class GENBlock(BasicBlock):
 
 class GCNBlock(BasicBlock):
     def __init__(self, in_channels, out_channels,
-                       norm='layer'):
+                 norm='layer'):
         super(GCNBlock, self).__init__(norm, in_channels)
 
         self.gcn = GCNConv(in_channels, out_channels)
@@ -87,8 +87,8 @@ class GCNBlock(BasicBlock):
 
 class SAGEBlock(BasicBlock):
     def __init__(self, in_channels, out_channels,
-                       norm='layer',
-                       dropout=0.0):
+                 norm='layer',
+                 dropout=0.0):
         super(SAGEBlock, self).__init__(norm, in_channels)
 
         self.gcn = SAGEConv(in_channels, out_channels)
@@ -96,10 +96,10 @@ class SAGEBlock(BasicBlock):
 
 class GATBlock(torch.nn.Module):
     def __init__(self, in_channels, out_channels,
-                        heads=1,
-                        norm='layer',
-                        att_dropout=0.0,
-                        dropout=0.0):
+                 heads=1,
+                 norm='layer',
+                 att_dropout=0.0,
+                 dropout=0.0):
         super(GATBlock, self).__init__(norm, in_channels)
 
         self.gcn = GATConv(in_channels, out_channels,

@@ -1,88 +1,73 @@
-from core.GNNs.gnn_utils import load_data, load_gpt_preds
 import torch
 from time import time
+import numpy as np
+
 from core.GNNs.GCN.model import GCN
 from core.GNNs.SAGE.model import SAGE
-from core.utils.modules.early_stopper import EarlyStopping
-import numpy as np
-from core.utils.function.os_utils import init_path, time_logger
+from core.GNNs.gnn_utils import EarlyStopping
+from core.data_utils.load import load_data, load_gpt_preds
+from core.utils import time_logger
 
 LOG_FREQ = 10
 
-lm_dim = {
-    'microsoft/deberta-base': 768,
-    'microsoft/deberta-large': 1024,
-}
-
-
-def _process(feature1, feature2, combine):
-    print(f"!!! using {combine} feature")
-    if combine == 'sum':
-        return feature1 + feature2
-    elif combine == 'prod':
-        return feature1*feature2
-    elif combine == 'concat':
-        return torch.cat([feature1, feature2], dim=1)
-    elif combine == 'f2':
-        return feature2
-    else:
-        return feature1
-
 
 class GNNTrainer():
-    def __init__(self, args):
-        self.device = args.device
-        self.gnn_model_name = args.gnn_model_name
-        self.lm_model_name = args.lm_model_name
-        self.dataset_name = args.dataset_name
-        self.hidden_dim = args.hidden_dim
-        self.num_layers = args.num_layers
-        self.dropout = args.dropout
-        self.lr = args.lr
-        self.combine = args.combine
-        self.epochs = args.epochs
-        self.seed = args.seed
+
+    def __init__(self, cfg, feature_type):
+        self.seed = cfg.seed
+        self.device = cfg.device
+        self.dataset_name = cfg.dataset
+        self.gnn_model_name = cfg.gnn.model.name
+        self.lm_model_name = cfg.lm.model.name
+        self.hidden_dim = cfg.gnn.model.hidden_dim
+        self.num_layers = cfg.gnn.model.num_layers
+        self.dropout = cfg.gnn.train.dropout
+        self.lr = cfg.gnn.train.lr
+        self.feature_type = feature_type
+        self.epochs = cfg.gnn.train.epochs
 
         # ! Load data
-        data = load_data(self.dataset_name)
+        data = load_data(self.dataset_name, use_dgl=False,
+                         use_text=False, seed=self.seed)
 
         self.num_nodes = data.x.shape[0]
         self.num_classes = data.y.unique().size(0)
-        use_pred = self.combine == 'f3'
+        data.y = data.y.squeeze()
 
         # ! Init gnn feature
         topk = 3 if self.dataset_name == 'pubmed' else 5
-        if args.use_ogb:
+        if self.feature_type == 'ogb':
             print("Loading OGB features...")
-            self.features = data.x.to(self.device)
-        elif self.combine == 'f3':
-            print("Loading top-k prediction features...")
-            self.features = load_gpt_preds(
-                self.dataset_name, topk).to(self.device)
-        else:
-            print("Loading pretrained LM features...")
+            features = data.x
+        elif self.feature_type == 'TA':
+            print("Loading pretrained LM features (title and abstract) ...")
             LM_emb_path = f"prt_lm/{self.dataset_name}/{self.lm_model_name}-seed{self.seed}.emb"
-            LM_emb_path2 = f"prt_lm/{self.dataset_name}2/{self.lm_model_name}-seed{self.seed}.emb"
             print(f"LM_emb_path: {LM_emb_path}")
-            print(f"LM_emb_path2: {LM_emb_path2}")
-            feature = torch.from_numpy(np.array(
+            features = torch.from_numpy(np.array(
                 np.memmap(LM_emb_path, mode='r',
                           dtype=np.float16,
-                          shape=(self.num_nodes, lm_dim[self.lm_model_name])))
+                          shape=(self.num_nodes, 768)))
             ).to(torch.float32)
-            feature2 = torch.from_numpy(np.array(
-                np.memmap(
-                    LM_emb_path2, mode='r',
-                    dtype=np.float16,
-                    shape=(self.num_nodes, lm_dim[self.lm_model_name])))
+        elif self.feature_type == 'E':
+            print("Loading pretrained LM features (explanations) ...")
+            LM_emb_path = f"prt_lm/{self.dataset_name}2/{self.lm_model_name}-seed{self.seed}.emb"
+            print(f"LM_emb_path: {LM_emb_path}")
+            features = torch.from_numpy(np.array(
+                np.memmap(LM_emb_path, mode='r',
+                          dtype=np.float16,
+                          shape=(self.num_nodes, 768)))
             ).to(torch.float32)
+        elif self.feature_type == 'P':
+            print("Loading top-k prediction features ...")
+            features = load_gpt_preds(self.dataset_name, topk)
+        else:
+            features = data.x
 
-            self.features = _process(
-                feature, feature2, self.combine).to(self.device)
-
-        data.y = data.y.squeeze()
+        self.features = features.to(self.device)
         self.data = data.to(self.device)
+
         # ! Trainer init
+        use_pred = self.feature_type == 'P'
         if self.gnn_model_name == "GCN":
             self.model = GCN(in_channels=self.hidden_dim*topk if use_pred else self.features.shape[1],
                              hidden_channels=self.hidden_dim,
@@ -108,7 +93,7 @@ class GNNTrainer():
         print(f'!!!!!GNN Phase, trainable_params are {trainable_params}')
         self.ckpt = f"output/{self.dataset_name}/{self.gnn_model_name}.pt"
         self.stopper = EarlyStopping(
-            patience=args.early_stop, path=self.ckpt) if args.early_stop > 0 else None
+            patience=cfg.gnn.train.early_stop, path=self.ckpt) if cfg.gnn.train.early_stop > 0 else None
         self.loss_func = torch.nn.CrossEntropyLoss()
 
         from core.GNNs.gnn_utils import Evaluator
@@ -130,14 +115,6 @@ class GNNTrainer():
         logits = self._forward(self.features, self.data.edge_index)
         loss = self.loss_func(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
-        # if self.dataset_name == 'ogbn-arxiv':
-        #     src, dst = self.data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
-        # else:
-        #     src, dst = self.data.edge_index
-        # pi = torch.softmax(logits[src], dim=-1)
-        # pj = torch.softmax(logits[dst], dim=-1)
-        # loss_tv = 10*(pi-pj).abs().sum() / (src.shape[0]*self.hidden_dim)
-        # loss += loss_tv
         train_acc = self.evaluator(
             logits[self.data.train_mask], self.data.y[self.data.train_mask])
         loss.backward()
@@ -168,11 +145,9 @@ class GNNTrainer():
                     print(
                         f'Early stopped, loading model from epoch-{self.stopper.best_epoch}')
                     break
-            if epoch % 10 == 0:
-                log_dict = {'Epoch': epoch, 'Time': round(time() - t0, 4), 'Loss': round(loss, 4),
-                            'TrainAcc': round(train_acc, 4), 'ValAcc': round(val_acc, 4), 'TestAcc': round(test_acc, 4),
-                            'ES': es_str, 'GNN_epoch': epoch}
-                print(log_dict)
+            if epoch % LOG_FREQ == 0:
+                print(
+                    f'Epoch: {epoch}, Time: {time()-t0:.4f}, Loss: {loss:.4f}, TrainAcc: {train_acc:.4f}, ValAcc: {val_acc:.4f}, ES: {es_str}')
 
         # ! Finished training, load checkpoints
         if self.stopper is not None:
@@ -180,11 +155,11 @@ class GNNTrainer():
 
         return self.model
 
-    @time_logger
     @ torch.no_grad()
     def eval_and_save(self):
         torch.save(self.model.state_dict(), self.ckpt)
         val_acc, test_acc, logits = self._evaluate()
+        print(
+            f'[{self.feature_type}] ValAcc: {val_acc:.4f}, TestAcc: {test_acc:.4f}\n')
         res = {'val_acc': val_acc, 'test_acc': test_acc}
-        print(res)
         return logits, res

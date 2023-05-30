@@ -53,10 +53,10 @@ def get_cora_casestudy(SEED=0):
 
 
 def parse_cora():
-    path = 'dataset/Cora-Orig/cora'
+    path = 'dataset/cora_orig/cora'
     idx_features_labels = np.genfromtxt(
         "{}.content".format(path), dtype=np.dtype(str))
-    data_X = idx_features_labels[:, 1:-1].astype(np.float)
+    data_X = idx_features_labels[:, 1:-1].astype(np.float32)
     labels = idx_features_labels[:, -1]
     class_map = {x: i for i, x in enumerate(['Case_Based', 'Genetic_Algorithms', 'Neural_Networks',
                                             'Probabilistic_Methods', 'Reinforcement_Learning', 'Rule_Learning', 'Theory'])}
@@ -78,7 +78,7 @@ def get_raw_text_cora(use_text=False, seed=0):
     if not use_text:
         return data, None
 
-    with open('dataset/Cora-Orig/mccallum/cora/papers')as f:
+    with open('dataset/cora_orig/mccallum/cora/papers')as f:
         lines = f.readlines()
     pid_filename = {}
     for line in lines:
@@ -86,7 +86,7 @@ def get_raw_text_cora(use_text=False, seed=0):
         fn = line.split('\t')[1]
         pid_filename[pid] = fn
 
-    path = 'dataset/Cora-Orig/mccallum/cora/extractions/'
+    path = 'dataset/cora_orig/mccallum/cora/extractions/'
     text = []
     for pid in data_citeid:
         fn = pid_filename[pid]
