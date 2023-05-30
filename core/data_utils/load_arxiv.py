@@ -26,9 +26,9 @@ def get_raw_text_arxiv(use_text=False, seed=0):
         return data, None
 
     nodeidx2paperid = pd.read_csv(
-        'dataset/ogbn_arxiv_orig/mapping/nodeidx2paperid.csv.gz', compression='gzip')
+        'dataset/ogbn_arxiv/mapping/nodeidx2paperid.csv.gz', compression='gzip')
 
-    raw_text = pd.read_csv('dataset/ogbn_arxiv/titleabs.tsv',
+    raw_text = pd.read_csv('dataset/ogbn_arxiv_orig/titleabs.tsv',
                            sep='\t', header=None, names=['paper id', 'title', 'abs'])
     df = pd.merge(nodeidx2paperid, raw_text, on='paper id')
     text = []
