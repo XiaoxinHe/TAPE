@@ -25,17 +25,17 @@ pip install transformers
 
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn-arxiv`. The dataset size is 200M.|
-|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1qRlKEuxjMJwatHtO2cIYbyVPpCesG4lf?usp=sharing) and move it to `dataset/Cora`. The dataset size is 2.6G.|
-PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1Wi-9isAxXZ62XkBzTlOhclUbW94vriGr?usp=sharing) and move it to `dataset/PubMed`. The dataset size is 115M.|
+| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn_arxiv_orig`. The dataset size is 200M.|
+|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1qRlKEuxjMJwatHtO2cIYbyVPpCesG4lf?usp=sharing) and move it to `dataset/cora_orig`. The dataset size is 2.6G.|
+PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1Wi-9isAxXZ62XkBzTlOhclUbW94vriGr?usp=sharing) and move it to `dataset/PubMed_orig`. The dataset size is 115M.|
 
 
 ## LLM responses
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/drive/folders/1ZO3r6Ek_FJHFEmDX9LeuICy2kT6zX73d?usp=sharing) and move it to `gpt_responses/orig/ogbn-arxiv`. The dataset size is 200M.|
-|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1GZnuf22Q7nchvNiOslq4PmM3E-1dpCgi?usp=sharing) and move it to `gpt_responses/orig/Cora`. The dataset size is 11M.|
-PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1YYuy72om88Pch7YbMLBHUyH4vEseED8B?usp=sharing) and move it to `gpt_responses/orig/PubMed`. The dataset size is 77M.|
+| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/drive/folders/1ZO3r6Ek_FJHFEmDX9LeuICy2kT6zX73d?usp=sharing) and move it to `gpt_responses/ogbn_arxiv`. The dataset size is 200M.|
+|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1GZnuf22Q7nchvNiOslq4PmM3E-1dpCgi?usp=sharing) and move it to `gpt_responses/cora`. The dataset size is 11M.|
+PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1YYuy72om88Pch7YbMLBHUyH4vEseED8B?usp=sharing) and move it to `gpt_responses/PubMed`. The dataset size is 77M.|
 
 
 # Fine-tuning the LMs
