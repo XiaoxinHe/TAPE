@@ -1,6 +1,19 @@
 # Explanations as Features: </br>LLM-Based Features for Text-Attributed Graphs
+[![arXiv](https://img.shields.io/badge/arXiv-2305.19523-b31b1b.svg)](https://arxiv.org/abs/2305.19523) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/explanations-as-features-llm-based-features/node-property-prediction-on-ogbn-arxiv)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-arxiv?p=explanations-as-features-llm-based-features)
 
 <img src="./overview.svg">
+
+## Citation
+```
+@misc{he2023explanations,
+      title={Explanations as Features: LLM-Based Features for Text-Attributed Graphs}, 
+      author={Xiaoxin He and Xavier Bresson and Thomas Laurent and Bryan Hooi},
+      year={2023},
+      eprint={2305.19523},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
 
 ## 0. Python environment setup with Conda
 ```
@@ -33,7 +46,7 @@ PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1Wi-
 ### B. LLM responses
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/drive/folders/1ZO3r6Ek_FJHFEmDX9LeuICy2kT6zX73d?usp=sharing) and move it to `gpt_responses/ogbn_arxiv`. The dataset size is 662M.|
+| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/file/d/1A6mZSFzDIhJU795497R6mAAM2Y9qutI5/view?usp=sharing) and move it to `gpt_responses/ogbn_arxiv`. The dataset size is 662M.|
 |Cora| Download the dataset [here](https://drive.google.com/drive/folders/1GZnuf22Q7nchvNiOslq4PmM3E-1dpCgi?usp=sharing) and move it to `gpt_responses/cora`. The dataset size is 11M.|
 PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1YYuy72om88Pch7YbMLBHUyH4vEseED8B?usp=sharing) and move it to `gpt_responses/PubMed`. The dataset size is 77M.|
 
@@ -73,5 +86,5 @@ python -m core.trainGNN gnn.train.feature_type P
 python -m core.trainGNN gnn.train.feature_type ogb
 ```
 
-## Reproducibility
+## 4. Reproducibility
 Use `run.sh` to run the codes and reproduce the published results.
