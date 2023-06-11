@@ -29,6 +29,7 @@ pip install ogb
 conda install -c dglteam/label/cu113 dgl
 pip install yacs
 pip install transformers
+pip install --upgrade accelerate
 ```
 
 
@@ -46,7 +47,7 @@ PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1Wi-
 ### B. LLM responses
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/file/d/1A6mZSFzDIhJU795497R6mAAM2Y9qutI5/view?usp=sharing) and move it to `gpt_responses/ogbn_arxiv`. The dataset size is 662M.|
+| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/file/d/1A6mZSFzDIhJU795497R6mAAM2Y9qutI5/view?usp=sharing) and move it to `gpt_responses/ogbn-arxiv`. The dataset size is 662M.|
 |Cora| Download the dataset [here](https://drive.google.com/drive/folders/1GZnuf22Q7nchvNiOslq4PmM3E-1dpCgi?usp=sharing) and move it to `gpt_responses/cora`. The dataset size is 11M.|
 PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1YYuy72om88Pch7YbMLBHUyH4vEseED8B?usp=sharing) and move it to `gpt_responses/PubMed`. The dataset size is 77M.|
 
@@ -59,7 +60,7 @@ WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 py
 
 ### To use the GPT responses
 ```
-WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 python -m core.trainLM dataset ogbn-arxiv use_gpt True
+WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 python -m core.trainLM dataset ogbn-arxiv lm.train.use_gpt True
 ```
 
 
