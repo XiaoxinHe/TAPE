@@ -39,17 +39,17 @@ pip install --upgrade accelerate
 
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn_arxiv_orig`. The dataset size is 200M.|
-|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1qRlKEuxjMJwatHtO2cIYbyVPpCesG4lf?usp=sharing) and move it to `dataset/cora_orig`. The dataset size is 2.6G.|
-PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1Wi-9isAxXZ62XkBzTlOhclUbW94vriGr?usp=sharing) and move it to `dataset/PubMed_orig`. The dataset size is 115M.|
+| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn_arxiv_orig`.|
+|Cora| Download the dataset [here](https://drive.google.com/file/d/1oo6EbCjrwOabjjudT5LGx75Ks9_HBAMs/view?usp=sharing), unzip and move it to `dataset/cora_orig`.|
+PubMed | Download the dataset [here](https://drive.google.com/file/d/1sYZX-jP6H8OkopVa9cp8-KXdEti5ki_W/view?usp=sharing), unzip and move it to `dataset/PubMed_orig`.|
 
 
 ### B. LLM responses
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/file/d/1A6mZSFzDIhJU795497R6mAAM2Y9qutI5/view?usp=sharing) and move it to `gpt_responses/ogbn-arxiv`. The dataset size is 662M.|
-|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1GZnuf22Q7nchvNiOslq4PmM3E-1dpCgi?usp=sharing) and move it to `gpt_responses/cora`. The dataset size is 11M.|
-PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1YYuy72om88Pch7YbMLBHUyH4vEseED8B?usp=sharing) and move it to `gpt_responses/PubMed`. The dataset size is 77M.|
+| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/file/d/1A6mZSFzDIhJU795497R6mAAM2Y9qutI5/view?usp=sharing), unzip and move it to `gpt_responses/ogbn-arxiv`.|
+|Cora| Download the dataset [here](https://drive.google.com/file/d/1tSepgcztiNNth4kkSR-jyGkNnN7QDYax/view?usp=sharing), unzip and move it to `gpt_responses/cora`.|
+PubMed | Download the dataset [here](https://drive.google.com/file/d/166waPAjUwu7EWEvMJ0heflfp0-4EvrZS/view?usp=sharing), unzip and move it to `gpt_responses/PubMed`.|
 
 
 ## 2. Fine-tuning the LMs
@@ -89,3 +89,6 @@ python -m core.trainGNN gnn.train.feature_type ogb
 
 ## 4. Reproducibility
 Use `run.sh` to run the codes and reproduce the published results.
+
+
+This repository also provides the checkpoints for all trained models `(*.ckpt)` and the TAPE features `(*.emb)` used in the project. Please donwload them [here](https://drive.google.com/drive/folders/1nF8NDGObIqU0kCkzVaisWooGEQlcNSIN?usp=sharing).
