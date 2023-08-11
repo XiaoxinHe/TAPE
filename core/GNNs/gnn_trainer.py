@@ -2,8 +2,7 @@ import torch
 from time import time
 import numpy as np
 
-from core.GNNs.GCN.model import GCN
-from core.GNNs.SAGE.model import SAGE
+
 from core.GNNs.gnn_utils import EarlyStopping
 from core.data_utils.load import load_data, load_gpt_preds
 from core.utils import time_logger
@@ -27,11 +26,11 @@ class GNNTrainer():
         self.epochs = cfg.gnn.train.epochs
 
         # ! Load data
-        data = load_data(self.dataset_name, use_dgl=False,
-                         use_text=False, seed=self.seed)
+        data, num_classes = load_data(
+            self.dataset_name, use_dgl=False, use_text=False, seed=self.seed)
 
-        self.num_nodes = data.x.shape[0]
-        self.num_classes = data.y.unique().size(0)
+        self.num_nodes = data.y.shape[0]
+        self.num_classes = num_classes
         data.y = data.y.squeeze()
 
         # ! Init gnn feature
@@ -71,21 +70,23 @@ class GNNTrainer():
 
         # ! Trainer init
         use_pred = self.feature_type == 'P'
-        if self.gnn_model_name == "GCN":
-            self.model = GCN(in_channels=self.hidden_dim*topk if use_pred else self.features.shape[1],
-                             hidden_channels=self.hidden_dim,
-                             out_channels=self.num_classes,
-                             num_layers=self.num_layers,
-                             dropout=self.dropout,
-                             use_pred=use_pred).to(self.device)
 
+        if self.gnn_model_name == "GCN":
+            from core.GNNs.GCN.model import GCN as GNN
         elif self.gnn_model_name == "SAGE":
-            self.model = SAGE(in_channels=self.hidden_dim*topk if use_pred else self.features.shape[1],
-                              hidden_channels=self.hidden_dim,
-                              out_channels=self.num_classes,
-                              num_layers=self.num_layers,
-                              dropout=self.dropout,
-                              use_pred=use_pred).to(self.device)
+            from core.GNNs.SAGE.model import SAGE as GNN
+        elif self.gnn_model_name == "MLP":
+            from core.GNNs.MLP.model import MLP as GNN
+        else:
+            print(f"Model {self.gnn_model_name} is not supported! Loading MLP ...")
+            from core.GNNs.MLP.model import MLP as GNN
+
+        self.model = GNN(in_channels=self.hidden_dim*topk if use_pred else self.features.shape[1],
+                         hidden_channels=self.hidden_dim,
+                         out_channels=self.num_classes,
+                         num_layers=self.num_layers,
+                         dropout=self.dropout,
+                         use_pred=use_pred).to(self.device)
 
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.lr, weight_decay=0.0)
@@ -163,6 +164,6 @@ class GNNTrainer():
         torch.save(self.model.state_dict(), self.ckpt)
         val_acc, test_acc, logits = self._evaluate()
         print(
-            f'[{self.feature_type}] ValAcc: {val_acc:.4f}, TestAcc: {test_acc:.4f}\n')
+            f'[{self.gnn_model_name} + {self.feature_type}] ValAcc: {val_acc:.4f}, TestAcc: {test_acc:.4f}\n')
         res = {'val_acc': val_acc, 'test_acc': test_acc}
         return logits, res

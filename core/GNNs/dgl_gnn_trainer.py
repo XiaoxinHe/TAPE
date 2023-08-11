@@ -36,8 +36,8 @@ class DGLGNNTrainer():
         self.seed = cfg.seed
 
         # ! Load data
-        dataset = load_data(self.dataset_name, use_dgl=True,
-                            use_text=False, seed=self.seed)
+        dataset, num_classes = load_data(self.dataset_name, use_dgl=True,
+                                         use_text=False, seed=self.seed)
         data = dataset[0]
 
         self.train_mask = dataset.train_mask
@@ -46,7 +46,7 @@ class DGLGNNTrainer():
         self.y = data.ndata['label'].squeeze().to(self.device)
 
         self.num_nodes = data.num_nodes()
-        self.num_classes = self.y.unique().size(0)
+        self.num_classes = num_classes
 
         # ! Init gnn feature
         topk = 3 if self.dataset_name == 'pubmed' else 5
@@ -184,6 +184,6 @@ class DGLGNNTrainer():
         torch.save(self.model.state_dict(), self.ckpt)
         val_acc, test_acc, logits = self._evaluate()
         print(
-            f'[{self.feature_type}] ValAcc: {val_acc:.4f}, TestAcc: {test_acc:.4f}\n')
+            f'[{self.gnn_model_name} + {self.feature_type}] ValAcc: {val_acc:.4f}, TestAcc: {test_acc:.4f}\n')
         res = {'val_acc': val_acc, 'test_acc': test_acc}
         return logits, res

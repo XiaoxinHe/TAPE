@@ -1,4 +1,4 @@
-# Explanations as Features: </br>LLM-Based Features for Text-Attributed Graphs
+# Harnessing Explanations: LLM-to-LM Interpreter for Enhanced Text-Attributed Graph Representation Learning
 
 <img src="./overview.svg">
 
@@ -25,17 +25,19 @@ pip install transformers
 
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn_arxiv_orig`. The dataset size is 200M.|
-|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1qRlKEuxjMJwatHtO2cIYbyVPpCesG4lf?usp=sharing) and move it to `dataset/cora_orig`. The dataset size is 2.6G.|
-PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1Wi-9isAxXZ62XkBzTlOhclUbW94vriGr?usp=sharing) and move it to `dataset/PubMed_orig`. The dataset size is 115M.|
+| ogbn-arxiv  | The [OGB](https://ogb.stanford.edu/docs/nodeprop/) provides the mapping from MAG paper IDs into the raw texts of titles and abstracts. <br/>Download the dataset [here](https://snap.stanford.edu/ogb/data/misc/ogbn_arxiv/titleabs.tsv.gz), unzip and move it to `dataset/ogbn_arxiv_orig`.|
+| arxiv_2023 |  Download the dataset [here](https://drive.google.com/file/d/1-s1Hf_2koa1DYp_TQvYetAaivK9YDerv/view?usp=sharing), unzip and move it to `dataset/arxiv_2023_orig`.|
+|Cora| Download the dataset [here](https://drive.google.com/file/d/1oo6EbCjrwOabjjudT5LGx75Ks9_HBAMs/view?usp=sharing), unzip and move it to `dataset/cora_orig`.|
+PubMed | Download the dataset [here](https://drive.google.com/file/d/1sYZX-jP6H8OkopVa9cp8-KXdEti5ki_W/view?usp=sharing), unzip and move it to `dataset/PubMed_orig`.|
 
 
 ### B. LLM responses
 | Dataset | Description |
 | ----- |  ---- |
-| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/drive/folders/1ZO3r6Ek_FJHFEmDX9LeuICy2kT6zX73d?usp=sharing) and move it to `gpt_responses/ogbn_arxiv`. The dataset size is 662M.|
-|Cora| Download the dataset [here](https://drive.google.com/drive/folders/1GZnuf22Q7nchvNiOslq4PmM3E-1dpCgi?usp=sharing) and move it to `gpt_responses/cora`. The dataset size is 11M.|
-PubMed | Download the dataset [here](https://drive.google.com/drive/folders/1YYuy72om88Pch7YbMLBHUyH4vEseED8B?usp=sharing) and move it to `gpt_responses/PubMed`. The dataset size is 77M.|
+| ogbn-arxiv  | Download the dataset [here](https://drive.google.com/file/d/1A6mZSFzDIhJU795497R6mAAM2Y9qutI5/view?usp=sharing), unzip and move it to `gpt_responses/ogbn-arxiv`.|
+| arxiv_2023 | Download the dataset [here](https://www.dropbox.com/scl/fi/cpy9m3mu6jasxr18scsoc/arxiv_2023.zip?rlkey=4wwgw1pgtrl8fo308v7zpyk59&dl=0), unzip and move it to `gpt_responses/arxiv_2023`.|
+|Cora| Download the dataset [here](https://drive.google.com/file/d/1tSepgcztiNNth4kkSR-jyGkNnN7QDYax/view?usp=sharing), unzip and move it to `gpt_responses/cora`.|
+PubMed | Download the dataset [here](https://drive.google.com/file/d/166waPAjUwu7EWEvMJ0heflfp0-4EvrZS/view?usp=sharing), unzip and move it to `gpt_responses/PubMed`.|
 
 
 ## 2. Fine-tuning the LMs
@@ -46,7 +48,7 @@ WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 py
 
 ### To use the GPT responses
 ```
-WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 python -m core.trainLM dataset ogbn-arxiv use_gpt True
+WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 python -m core.trainLM dataset ogbn-arxiv lm.train.use_gpt True
 ```
 
 
@@ -54,9 +56,10 @@ WANDB_DISABLED=True TOKENIZERS_PARALLELISM=False CUDA_VISIBLE_DEVICES=0,1,2,3 py
 
 ### To use different GNN models
 ```
+python -m core.trainEnsemble gnn.model.name MLP
 python -m core.trainEnsemble gnn.model.name GCN
 python -m core.trainEnsemble gnn.model.name SAGE
-python -m core.trainEnsemble gnn.model.name RevGAT gnn.train.use_dgl True gnn.train.lr 0.002 gnn.train.dropout 0.75
+python -m core.trainEnsemble gnn.model.name RevGAT gnn.train.lr 0.002 gnn.train.dropout 0.75
 ```
 
 ### To use different types of features
@@ -73,5 +76,8 @@ python -m core.trainGNN gnn.train.feature_type P
 python -m core.trainGNN gnn.train.feature_type ogb
 ```
 
-## Reproducibility
+## 4. Reproducibility
 Use `run.sh` to run the codes and reproduce the published results.
+
+
+This repository also provides the checkpoints for all trained models `(*.ckpt)` and the TAPE features `(*.emb)` used in the project. Please donwload them [here](https://drive.google.com/drive/folders/1nF8NDGObIqU0kCkzVaisWooGEQlcNSIN?usp=sharing).
