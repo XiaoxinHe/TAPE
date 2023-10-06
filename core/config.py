@@ -34,8 +34,6 @@ def set_cfg(cfg):
     # GNN Training options
     # ------------------------------------------------------------------------ #
     cfg.gnn.train = CN()
-    # Use PyG or DGL
-    cfg.gnn.train.use_dgl = False
     # The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights
     cfg.gnn.train.weight_decay = 0.0
     # Maximal number of epochs

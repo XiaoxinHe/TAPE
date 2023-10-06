@@ -4,6 +4,8 @@ import torch
 from torch.utils.data import Dataset as TorchDataset
 
 # convert PyG dataset to DGL dataset
+
+
 class CustomDGLDataset(TorchDataset):
     def __init__(self, name, pyg_data):
         self.name = name
@@ -16,7 +18,7 @@ class CustomDGLDataset(TorchDataset):
 
         data = self.pyg_data
         g = dgl.DGLGraph()
-        if self.name == 'ogbn-arxiv':
+        if self.name == 'ogbn-arxiv' or self.name == 'ogbn-products':
             edge_index = data.edge_index.to_torch_sparse_coo_tensor().coalesce().indices()
         else:
             edge_index = data.edge_index
@@ -25,13 +27,14 @@ class CustomDGLDataset(TorchDataset):
 
         if data.edge_attr is not None:
             g.edata['feat'] = torch.FloatTensor(data.edge_attr)
-        if self.name == 'ogbn-arxiv':
+        if self.name == 'ogbn-arxiv' or self.name == 'ogbn-products':
             g = dgl.to_bidirected(g)
             print(
                 f"Using GAT based methods,total edges before adding self-loop {g.number_of_edges()}")
             g = g.remove_self_loop().add_self_loop()
             print(f"Total edges after adding self-loop {g.number_of_edges()}")
-        g.ndata['feat'] = torch.FloatTensor(data.x)
+        if data.x is not None:
+            g.ndata['feat'] = torch.FloatTensor(data.x)
         g.ndata['label'] = torch.LongTensor(data.y)
         return g
 

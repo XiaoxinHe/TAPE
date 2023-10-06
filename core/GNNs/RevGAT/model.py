@@ -118,9 +118,9 @@ class GATConv(nn.Module):
 
     def forward(self, graph, feat, perm=None):
         with graph.local_scope():
-            if not self._allow_zero_in_degree:
-                if (graph.in_degrees() == 0).any():
-                    assert False
+            # if not self._allow_zero_in_degree:
+            #     if (graph.in_degrees() == 0).any():
+            #         assert False
 
             if isinstance(feat, tuple):
                 h_src = self.feat_drop(feat[0])

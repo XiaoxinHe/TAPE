@@ -40,11 +40,11 @@ class LMTrainer():
         self.ckpt_dir = f'prt_lm/{self.dataset_name}{self.use_gpt_str}/{self.model_name}-seed{self.seed}'
 
         # Preprocess data
-        data, text = load_data(
+        data, num_classes, text = load_data(
             dataset=self.dataset_name, use_text=True, use_gpt=cfg.lm.train.use_gpt, seed=self.seed)
         self.data = data
-        self.num_nodes = data.x.size(0)
-        self.n_labels = data.y.unique().size(0)
+        self.num_nodes = data.y.size(0)
+        self.n_labels = num_classes
 
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         X = tokenizer(text, padding=True, truncation=True, max_length=512)
