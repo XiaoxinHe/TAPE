@@ -1,6 +1,20 @@
 # Harnessing Explanations: LLM-to-LM Interpreter for Enhanced Text-Attributed Graph Representation Learning
+[![arXiv](https://img.shields.io/badge/arXiv-2305.19523-b31b1b.svg)](https://arxiv.org/abs/2305.19523) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/explanations-as-features-llm-based-features/node-property-prediction-on-ogbn-arxiv)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-arxiv?p=explanations-as-features-llm-based-features)
+
 
 <img src="./overview.svg">
+
+## Citation
+```
+@misc{he2023explanations,
+      title={Explanations as Features: LLM-Based Features for Text-Attributed Graphs}, 
+      author={Xiaoxin He and Xavier Bresson and Thomas Laurent and Bryan Hooi},
+      year={2023},
+      eprint={2305.19523},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
 
 ## 0. Python environment setup with Conda
 ```
@@ -16,6 +30,7 @@ pip install ogb
 conda install -c dglteam/label/cu113 dgl
 pip install yacs
 pip install transformers
+pip install --upgrade accelerate
 ```
 
 
