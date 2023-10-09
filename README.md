@@ -6,9 +6,9 @@
 
 ## Citation
 ```
-@misc{he2023explanations,
-      title={Explanations as Features: LLM-Based Features for Text-Attributed Graphs}, 
-      author={Xiaoxin He and Xavier Bresson and Thomas Laurent and Bryan Hooi},
+@misc{he2023harnessing,
+      title={Harnessing Explanations: LLM-to-LM Interpreter for Enhanced Text-Attributed Graph Representation Learning}, 
+      author={Xiaoxin He and Xavier Bresson and Thomas Laurent and Adam Perold and Yann LeCun and Bryan Hooi},
       year={2023},
       eprint={2305.19523},
       archivePrefix={arXiv},
