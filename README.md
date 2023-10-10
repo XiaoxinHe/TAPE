@@ -91,8 +91,11 @@ python -m core.trainGNN gnn.train.feature_type P
 python -m core.trainGNN gnn.train.feature_type ogb
 ```
 
+
 ## 4. Reproducibility
 Use `run.sh` to run the codes and reproduce the published results.
 
-
 This repository also provides the checkpoints for all trained models `(*.ckpt)` and the TAPE features `(*.emb)` used in the project. Please donwload them [here](https://drive.google.com/drive/folders/1nF8NDGObIqU0kCkzVaisWooGEQlcNSIN?usp=sharing).
+
+### arxiv-2023 dataset
+The codes for constructing and processing the `arxiv-2023` dataset are provided [here](https://github.com/XiaoxinHe/arxiv_2023).
