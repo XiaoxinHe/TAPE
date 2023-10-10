@@ -24,7 +24,7 @@ class EnsembleTrainer():
         self.weight_decay = cfg.gnn.train.weight_decay
 
         # ! Load data
-        data, _ = load_data(self.dataset_name, use_dgl=False, use_text=False)
+        data, _ = load_data(self.dataset_name, use_dgl=False, use_text=False, seed=cfg.seed)
 
         data.y = data.y.squeeze()
         self.data = data.to(self.device)
