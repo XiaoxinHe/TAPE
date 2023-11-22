@@ -17,7 +17,6 @@ def _process():
         return
 
     print("Processing raw text...")
-    ts = time.time()
 
     data = []
     files = ['dataset/ogbn_products/Amazon-3M.raw/trn.json',
@@ -50,33 +49,20 @@ def _process():
 
 
 def get_raw_text_products(use_text=False, seed=0):
-    dataset = PygNodePropPredDataset(
-        name='ogbn-products', transform=T.ToSparseTensor())
-    data = dataset[0]
+    data = torch.load('dataset/ogbn_products/ogbn-products_subset.pt')
+    text = pd.read_csv('dataset/ogbn_products_orig/ogbn-products_subset.csv')
+    text = [f'Product:{ti}; Description: {cont}\n'for ti,
+            cont in zip(text['title'], text['content'])]
 
-    idx_splits = dataset.get_idx_split()
-    train_mask = torch.zeros(data.num_nodes).bool()
-    val_mask = torch.zeros(data.num_nodes).bool()
-    test_mask = torch.zeros(data.num_nodes).bool()
-    train_mask[idx_splits['train']] = True
-    val_mask[idx_splits['valid']] = True
-    test_mask[idx_splits['test']] = True
-    data.train_mask = train_mask
-    data.val_mask = val_mask
-    data.test_mask = test_mask
     data.edge_index = data.adj_t.to_symmetric()
 
     if not use_text:
         return data, None
 
-    _process()
-    with open(FILE) as f:
-        df = pd.read_csv(f)
-    df['title'].fillna("", inplace=True)
-    df['content'].fillna("", inplace=True)
-    text = []
-    for ti, ab in zip(df['title'], df['content']):
-        t = 'Title: ' + ti.strip() + '\n' + 'Content: ' + ab.strip()
-        text.append(t)
-
     return data, text
+
+
+if __name__ == '__main__':
+    data, text = get_raw_text_products(True)
+    print(data)
+    print(text[0])

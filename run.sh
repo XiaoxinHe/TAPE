@@ -1,4 +1,4 @@
-for dataset in 'cora' 'pubmed' 'ogbn-arxiv' 'ariv_2023'
+for dataset in 'cora' 'pubmed' 'ogbn-arxiv' 'ariv_2023' 'ogbn-products'
 do
     for seed in 0 1 2 3
     do
