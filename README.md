@@ -6,13 +6,13 @@
 
 ## Citation
 ```
-@misc{he2023harnessing,
-      title={Harnessing Explanations: LLM-to-LM Interpreter for Enhanced Text-Attributed Graph Representation Learning}, 
-      author={Xiaoxin He and Xavier Bresson and Thomas Laurent and Adam Perold and Yann LeCun and Bryan Hooi},
-      year={2023},
-      eprint={2305.19523},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{
+he2024harnessing,
+title={Harnessing Explanations: {LLM}-to-{LM} Interpreter for Enhanced Text-Attributed Graph Representation Learning},
+author={Xiaoxin He and Xavier Bresson and Thomas Laurent and Adam Perold and Yann LeCun and Bryan Hooi},
+booktitle={The Twelfth International Conference on Learning Representations},
+year={2024},
+url={https://openreview.net/forum?id=RXFVcynVe1}
 }
 ```
 
